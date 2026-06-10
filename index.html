@@ -1,0 +1,2576 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+		/>
+
+		<title>Event Source Your Way Out Of Trouble — Sussex PHP</title>
+
+		<link rel="stylesheet" href="dist/reset.css" />
+		<link rel="stylesheet" href="dist/reveal.css" />
+		<link rel="stylesheet" href="dist/theme/black.css" />
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="dist/plugin/highlight/monokai-sublime.css" />
+
+		<style>
+			.reveal-viewport {
+				background: linear-gradient(oklch(0.208 0.042 265.755) 0%, oklch(0.446 0.043 257.281) 70%, oklch(0.372 0.044 257.287) 100%);
+			}
+			.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+				text-transform: none;
+				letter-spacing: -0.01em;
+				color: rgb(216, 78, 28);
+			}
+			.reveal .subtitle {
+				color: oklch(87.2% .01 258.338);
+				font-style: italic;
+				margin-top: -0.4em;
+			}
+			.reveal .footer-author {
+				position: fixed;
+				bottom: 12px;
+				right: 16px;
+				font-size: 0.45em;
+				opacity: 0.5;
+			}
+			#brand-mark {
+				position: fixed;
+				bottom: 14px;
+				left: 16px;
+				height: 36px;
+				opacity: 0;
+				transition: opacity 0.3s ease;
+				pointer-events: none;
+				z-index: 30;
+			}
+			#brand-mark.visible {
+				opacity: 0.7;
+			}
+			.reveal pre {
+				width: 100%;
+				box-shadow: none;
+			}
+			.reveal pre code {
+				max-height: 560px;
+				font-size: 0.65em;
+				line-height: 1.35em;
+				padding: 18px 24px;
+			}
+			.reveal .small { font-size: 0.7em; }
+			.reveal .xsmall { font-size: 0.55em; opacity: 0.75; }
+			.reveal .highlight { color: rgb(216, 78, 28); }
+			.reveal .danger { color: #eb6f92; }
+			.reveal .good { color: #9ccfd8; }
+			.reveal .muted { color: #888; }
+			.reveal .two-col {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 1.2em;
+				text-align: left;
+			}
+			.reveal .two-col h3 { margin-top: 0; }
+			.reveal table {
+				font-size: 0.7em;
+				margin: 0 auto;
+			}
+			.reveal table th, .reveal table td {
+				padding: 0.4em 0.8em;
+				border-bottom: 1px solid #444;
+			}
+			.reveal ul { list-style: none; margin-left: 0; }
+			.reveal ul.tight li { margin-bottom: 0.15em; }
+			.reveal .stamp {
+				display: inline-block;
+				border: 3px solid #eb6f92;
+				color: #eb6f92;
+				padding: 0.1em 0.4em;
+				transform: rotate(-6deg);
+				font-weight: bold;
+				letter-spacing: 0.1em;
+			}
+			.reveal .pill {
+				display: inline-block;
+				padding: 0.1em 0.6em;
+				border-radius: 999px;
+				background: #2a2a2a;
+				font-size: 0.7em;
+				margin: 0.1em;
+			}
+			.reveal .event {
+				background: #2a2a3a;
+				border-left: 4px solid #9ccfd8;
+				padding: 0.4em 0.8em;
+				margin: 0.3em 0;
+				text-align: left;
+				font-family: monospace;
+				font-size: 0.65em;
+			}
+			.reveal .event.bad { border-left-color: #eb6f92; }
+			.reveal .stream .event { font-size: 0.56em; margin: 0.15em 0; padding: 0.3em 0.7em; }
+			.reveal .stream .event.total { border-left-color: rgb(216, 78, 28); }
+			.reveal .stream.focus .event { transition: opacity 0.4s ease, transform 0.4s ease; }
+			.reveal .stream.focus .event:not(.culprit) { opacity: 0.22; }
+			.reveal .stream.focus .event.culprit { transform: scale(1.18); z-index: 5; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6); }
+			.reveal .eventgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; max-width: 90%; margin: 0.5em auto; }
+			.reveal .eventgrid .event { margin: 0; font-size: 0.5em; }
+			.reveal .buggrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6em; margin: 0.5em 0; text-align: left; }
+			.reveal .bugcard {
+				background: #2a2a3a; border-left: 4px solid #eb6f92; border-radius: 6px;
+				padding: 0.6em 0.75em; font-size: 0.46em; line-height: 1.35;
+			}
+			.reveal .bugcard .who { display: block; margin-top: 0.4em; color: #8a8a99; font-size: 0.88em; }
+			.reveal .arrow-sm { color: rgb(216, 78, 28); font-weight: bold; margin: 0 0.3em; }
+			.reveal .steprail { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.35em; margin: 0 0 0.6em; font-size: 0.4em; }
+			.reveal .steprail .s { padding: 0.35em 0.75em; border-radius: 999px; background: #2a2a3a; color: #8a8a99; white-space: nowrap; }
+			.reveal .steprail .s.done { color: #9ccfd8; }
+			.reveal .steprail .s.active { background: rgb(216, 78, 28); color: #fff; font-weight: bold; }
+			.reveal .codecols { gap: 0.6em; align-items: start; }
+			.reveal .codecols pre { margin: 0; }
+			.reveal .codecols pre code { font-size: 0.5em; padding: 10px 14px; max-height: none; line-height: 1.3em; }
+			.reveal pre code.fit { font-size: 0.42em; max-height: none; line-height: 1.3em; }
+			.reveal .timeline { max-width: 30em; margin: 0 auto; }
+			.reveal .timeline .event { display: flex; align-items: baseline; gap: 0.7em; }
+			.reveal .timeline .pos { color: rgb(216, 78, 28); font-weight: bold; min-width: 1.4em; text-align: right; }
+			.reveal .timeline .ev { flex: 1; }
+			.reveal .timeline .meta { color: #8a8a99; }
+			.reveal .viewstack { position: relative; height: 360px; margin: 0.4em 0; }
+			.reveal .view {
+				position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+				width: 18em; background: #2a2a3a; border-radius: 8px;
+				padding: 0.7em 1.1em 0.9em; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+			}
+			.reveal .view h3 { margin: 0.1em 0 0.35em; }
+			.reveal .view ul { font-size: 0.85em; }
+			.reveal .viewgrid {
+				position: absolute; top: 0; left: 0; width: 100%;
+				display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5em;
+			}
+			.reveal .viewgrid .minicard {
+				background: #2a2a3a; border-radius: 6px; padding: 0.45em 0.55em;
+				text-align: left; font-size: 0.4em;
+			}
+			.reveal .viewgrid .minicard h3 { margin: 0 0 0.4em; font-size: 1.15em; }
+			.reveal .viewgrid .minicard ul { margin: 0; list-style: none; }
+			.reveal .viewgrid .minicard li { margin-bottom: 0.2em; }
+			.reveal .punchswap { position: relative; height: 1.8em; margin-top: 0.4em; }
+			.reveal .punchswap p { position: absolute; left: 0; right: 0; margin: 0; }
+			.reveal .pmflow { display: flex; align-items: center; justify-content: center; gap: 0.6em; margin: 0.4em 0; }
+			.reveal .pmflow .event { margin: 0; font-size: 0.5em; }
+			.reveal .pmflow .arrow { color: rgb(216, 78, 28); font-size: 1.4em; font-weight: bold; }
+			.reveal .pm {
+				background: #2a2a3a; border: 2px solid rgb(216, 78, 28); border-radius: 8px;
+				padding: 0.4em 0.7em; font-family: monospace; font-size: 0.55em; white-space: nowrap;
+			}
+			.reveal .cmds { display: flex; flex-direction: column; gap: 0.3em; }
+			.reveal .pipeline { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4em; margin: 0.8em 0; }
+			.reveal .pipeline .stage { display: flex; align-items: center; gap: 0.4em; }
+			.reveal .pipeline .arrow { color: rgb(216, 78, 28); font-size: 1.4em; font-weight: bold; }
+			.reveal .node {
+				background: #2a2a3a; border-radius: 8px; padding: 0.5em 0.7em;
+				font-size: 0.5em; min-width: 6.5em; text-align: left;
+			}
+			.reveal .node .lbl {
+				display: block; text-transform: uppercase; letter-spacing: 0.07em;
+				font-size: 0.78em; color: #8a8a99; margin-bottom: 0.25em;
+			}
+			.reveal .node.store { border: 2px solid rgb(216, 78, 28); padding: calc(0.5em - 2px) calc(0.7em - 2px); }
+			.reveal .node small { color: #8a8a99; }
+			.reveal blockquote {
+				font-style: italic;
+				border-left: 4px solid rgb(216, 78, 28);
+			}
+			.reveal .pile {
+				position: relative;
+				height: 600px;
+				margin-top: 0.1em;
+			}
+			.reveal .ping {
+				position: absolute;
+				width: 360px;
+				background: #2a2a3a;
+				border-left: 4px solid #9ccfd8;
+				border-radius: 6px;
+				padding: 0.5em 0.75em;
+				text-align: left;
+				font-size: 0.42em;
+				line-height: 1.3;
+				box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+			}
+			.reveal .ping .chan {
+				display: block;
+				font-size: 0.72em;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				opacity: 0.55;
+				margin-bottom: 0.2em;
+			}
+			.reveal .ping.bad { border-left-color: #eb6f92; }
+			.reveal .ping.warn { border-left-color: rgb(216, 78, 28); }
+			.reveal .ping.noise { color: #8a8a99; }
+			.reveal .pile .ping { transition: opacity 0.4s ease; }
+			.reveal .pile.focus .ping:not(.expanded) { opacity: 0.4; }
+			.reveal .ping.expanded {
+				width: 460px;
+				font-size: 0.52em;
+				padding: 0.75em 1em;
+				box-shadow: 0 14px 44px rgba(0, 0, 0, 0.7);
+				z-index: 50;
+			}
+			.reveal .ping.expanded hr {
+				border: none;
+				border-top: 1px solid #444;
+				margin: 0.5em 0;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="footer-author">Christopher Miller · Sussex PHP</div>
+		<img id="brand-mark" src="images/php-architect-logo.png" alt="PHP Architect" />
+		<div class="reveal">
+			<div class="slides">
+
+<!-- ==================== PART 0: OPENING ==================== -->
+
+<section>
+	<h1>Event Source Your Way Out Of Trouble</h1>
+	<p class="subtitle" style="color: rgb(216, 78, 28);">Turning unpredictable bugs into repeatable, solvable sequences</p>
+	<p class="small" style="color: oklch(87.2% .01 258.338);">Christopher Miller — Sussex PHP — June 2026</p>
+	<aside class="notes">
+		Welcome. Tonight is going to be two hours, one speaker, one big idea, and one fictional pub.
+		Get a drink. We are going to make a lot of mistakes on purpose so we can fix them with event sourcing.
+		Introduce yourself, your day job at php[architect], briefly why this topic matters to you.
+	</aside>
+</section>
+
+<section>
+	<h2>Hello, I'm Christopher</h2>
+	<ul class="tight" style="list-style: none; margin-left: 0;">
+		<li class="fragment"><img src="images/php-architect-logo.png" alt="PHP Architect" style="height: 2.6em; vertical-align: middle; margin: 0.2em 0;" /></li>
+		<li class="fragment">I've inherited more legacy PHP than I'd care to admit</li>
+		<li class="fragment">I've written 3am UPDATE statements I am not proud of</li>
+	</ul>
+	<aside class="notes">
+		Quick about me. Keep this short — 30-45 seconds. The point is "I have been in the trenches you are in."
+		Maybe mention one anecdote: a tab/billing/order bug that haunted you. Foreshadows the demo.
+	</aside>
+</section>
+
+<section>
+	<h2>This talk is the apology to my past self</h2>
+</section>
+
+<section>
+	<h2>Tonight's victim</h2>
+	<h3 class="highlight">The Crooked Anchor</h3>
+</section>
+
+<section>
+	<p>A pub on New England Road, Brighton.</p>
+</section>
+
+<section>
+	<h3>One database. Many bartenders. <span class="highlight">Friday&nbsp;night.</span></h3>
+	<p class="fragment">
+		<span class="pill">Front of house tablets</span>
+		<span class="pill">Kitchen display</span>
+		<span class="pill">Card terminal</span>
+	</p>
+	<p class="fragment small muted">Then, somewhere around last orders…</p>
+	<div class="event bad fragment">
+		<span class="muted">bug report #1042</span><br>
+		"the lager round got billed to <span class="danger">table 7</span>"
+	</div>
+	<aside class="notes">
+		Set the scene. We are going to use one running domain all night so nobody has to context-switch.
+		The pub is complex enough — drinks, food, kitchen tickets, splits, allergens — to surface real ES tensions.
+		It's also concrete and physical, which helps when the abstractions get slippery later.
+		Beat: let the pills land, pause on "last orders", then the bug report drops in as a "bad event" — first taste of the theme.
+	</aside>
+</section>
+
+<section>
+	<h2>What you'll leave with</h2>
+	<ul class="tight" style="list-style: none; margin-left: 0;">
+		<li class="fragment"><span style="color: rgb(216, 78, 28); font-weight: bold; margin-right: 0.4em;">✓</span>A vocabulary for talking about events with your team</li>
+		<li class="fragment"><span style="color: rgb(216, 78, 28); font-weight: bold; margin-right: 0.4em;">✓</span>Plain-PHP code you can lift into a real project on Monday</li>
+		<li class="fragment"><span style="color: rgb(216, 78, 28); font-weight: bold; margin-right: 0.4em;">✓</span>A debugging technique that beats <code>var_dump</code> for legacy bugs</li>
+		<li class="fragment"><span style="color: rgb(216, 78, 28); font-weight: bold; margin-right: 0.4em;">✓</span>A migration path that <em>doesn't</em> require a rewrite</li>
+		<li class="fragment"><span style="color: rgb(216, 78, 28); font-weight: bold; margin-right: 0.4em;">✓</span>Permission to stop running UPDATEs in production <span class="stamp">GRANTED</span></li>
+	</ul>
+	<aside class="notes">
+		Set expectations. This is not "rewrite everything in Axon/Akka."
+		You will leave knowing how to add an event log alongside a legacy module.
+		The last bullet usually gets a laugh — lean into it.
+	</aside>
+</section>
+
+<section>
+	<h2>Map of the night</h2>
+	<ol class="tight small" style="list-style: none; margin-left: 0; text-align: left; max-width: 26em; margin-inline: auto;">
+		<li><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">1</span>The trouble — why legacy PHP debugging hurts</li>
+		<li><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">2</span>Enter event sourcing — vocabulary and intuition</li>
+		<li><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">3</span>Building it in plain PHP — code, lots of it</li>
+		<li><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">4</span>Debugging superpowers — <span class="highlight">the real payoff</span></li>
+		<li style="text-align: center; margin: 0.6em 0;"><span class="pill">break · 20 min · heckling resumes after</span></li>
+		<li><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">5</span>The safety net — fixing prod without UPDATEs</li>
+		<li><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">6</span>Strangling the legacy — incremental adoption</li>
+		<li><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">7</span>Q&amp;A</li>
+	</ol>
+	<p class="xsmall">Heckling encouraged. Ask questions as we go.</p>
+	<aside class="notes">
+		Promise the structure. Tell them when the break is. Tell them questions are welcome throughout — but
+		that the deep "but what about CQRS event upcasters" questions are best saved for the safety-net section.
+	</aside>
+</section>
+
+<section>
+	<h2 style="font-size: 2.2em; margin-bottom: 0.1em;">Heckle&nbsp;me.</h2>
+	<p class="subtitle" style="color: rgb(216, 78, 28);">Out loud. As we go. I mean it.</p>
+	<p class="fragment">When we reach <span class="highlight">your bit</span> — the one that's biting you in prod —</p>
+	<p class="fragment" style="font-size: 1.3em;"><strong>ask right then.</strong></p>
+	<p class="fragment small muted">Don't save it for the end. Don't email me next week.</p>
+	<p class="fragment good">Questions land best <em>in context</em> — which, honestly, is the whole point of event sourcing too.</p>
+	<aside class="notes">
+		Energy beat. Say it like you mean it — make eye contact, maybe plant a friendly heckle with someone in the front row.
+		The callback to "in context" is the hook into the rest of the night; let it breathe before moving on.
+	</aside>
+</section>
+
+<section>
+	<h2>One disclaimer</h2>
+	<blockquote class="small">
+		Event sourcing is not the answer to every problem.<br>
+		It is a <span class="highlight">very good answer</span> to a specific class of problems —<br>
+		the ones that wake you up at 3am.
+	</blockquote>
+	<aside class="notes">
+		Important to disarm the skeptics early. We're not religious about this. There are places it's wrong —
+		read-mostly catalogues, admin CRUD, simple lookup tables. We'll come back to "when not to" at the end.
+	</aside>
+</section>
+
+<!-- ==================== PART 1: THE TROUBLE ==================== -->
+
+<section>
+	<h2>Part 1</h2>
+	<h3 class="danger" style="color: rgb(216, 78, 28);">The trouble</h3>
+	<aside class="notes">
+		Section transition. This whole section is about making the pain palpable. Don't rush — let them
+		recognise their own codebase in what you describe. Pause for "show of hands" moments.
+	</aside>
+</section>
+
+<section>
+	<h2>3am. It all arrives at once.</h2>
+	<div class="pile">
+		<div class="ping bad fragment" style="left: 60px; top: 30px; transform: rotate(-4deg);">
+			<span class="chan">SMS · Accountant</span>Friday's takings are <span class="danger">£312 short</span>. We need to talk before you open.
+		</div>
+		<div class="ping fragment" style="left: 470px; top: 10px; transform: rotate(3deg);">
+			<span class="chan">Missed call · Landlord</span>(3 missed calls)
+		</div>
+		<div class="ping fragment" style="left: 250px; top: 65px; transform: rotate(5deg);">
+			<span class="chan">WhatsApp · Bar staff</span>We did NOT undercharge anyone. Check the cameras.
+		</div>
+		<div class="ping warn fragment" style="left: 545px; top: 95px; transform: rotate(-3deg);">
+			<span class="chan">Email · Card terminal</span>Settlement total doesn't match the till Z-read.
+		</div>
+		<div class="ping fragment" style="left: 15px; top: 120px; transform: rotate(2deg);">
+			<span class="chan">Voicemail · Accountant</span>"…just need eyes on it before opening, yeah?"
+		</div>
+		<div class="ping warn fragment" style="left: 330px; top: 150px; transform: rotate(-5deg);">
+			<span class="chan">Slack · #ops</span>till vs card machine mismatch. again.
+		</div>
+		<div class="ping fragment" style="left: 150px; top: 105px; transform: rotate(4deg);">
+			<span class="chan">SMS · Day manager</span>Don't let anyone cash up till you've looked!!
+		</div>
+		<div class="ping fragment" style="left: 560px; top: 200px; transform: rotate(-2deg);">
+			<span class="chan">Sticky note · behind the bar</span>"table 7 paid for round 4??" — Dave
+		</div>
+		<div class="ping noise fragment" style="left: 70px; top: 235px; transform: rotate(3deg);">
+			<span class="chan">Email · Supplier</span>Reminder: keg invoice #4471 is overdue.
+		</div>
+		<div class="ping fragment" style="left: 385px; top: 245px; transform: rotate(-4deg);">
+			<span class="chan">SMS · Chef</span>did we 86 the calamari? tickets still printing
+		</div>
+		<div class="ping bad fragment" style="left: 230px; top: 210px; transform: rotate(2deg);">
+			<span class="chan">Email · Bank</span>Unusual activity flagged on terminal settlement.
+		</div>
+		<div class="ping fragment" style="left: 510px; top: 295px; transform: rotate(4deg);">
+			<span class="chan">Slack · #managers</span>who closed the till last night??
+		</div>
+		<div class="ping fragment" style="left: 25px; top: 335px; transform: rotate(-3deg);">
+			<span class="chan">WhatsApp · Owner</span>saw the accountant's text. call me.
+		</div>
+		<div class="ping fragment" style="left: 295px; top: 330px; transform: rotate(3deg);">
+			<span class="chan">Missed call · Unknown number</span>(2 missed calls)
+		</div>
+		<div class="ping warn fragment" style="left: 430px; top: 385px; transform: rotate(-2deg);">
+			<span class="chan">SMS · Sam (bar)</span>the iPad froze twice during last orders
+		</div>
+		<div class="ping fragment" style="left: 560px; top: 405px; transform: rotate(2deg);">
+			<span class="chan">Voicemail · Card processor</span>"…regarding your chargeback query…"
+		</div>
+		<div class="ping fragment" style="left: 130px; top: 385px; transform: rotate(5deg);">
+			<span class="chan">Sticky note · by the till</span>round comped? ask Jess
+		</div>
+		<div class="ping noise fragment" style="left: 250px; top: 455px; transform: rotate(-3deg);">
+			<span class="chan">Email · POS vendor</span>POS v4.2 update is now available.
+		</div>
+		<div class="ping noise fragment" style="left: 50px; top: 460px; transform: rotate(4deg);">
+			<span class="chan">Calendar · Reminder</span>Brewery delivery — 7am.
+		</div>
+		<div class="ping bad fragment" style="left: 350px; top: 255px; transform: rotate(-3deg);">
+			<span class="chan">Bug report #1042</span>"the lager round got billed to <span class="danger">table 7</span>"
+		</div>
+		<div id="bug-expanded" class="ping bad expanded fragment focus-trigger" style="left: 250px; top: 210px; transform: rotate(0deg);">
+			<span class="chan">Bug report #1042 · opened</span>"the lager round got billed to <span class="danger">table 7</span>"
+			<hr>
+			<span class="good">22:47</span> round added to Tab&nbsp;#12 &nbsp;·&nbsp; <span class="good">22:51</span> Tab&nbsp;#12 moved to Table&nbsp;7
+			<div class="small good" style="margin-top: 0.4em;">Wait — the order never moved. The <em>tab</em> did. If only we could replay it…</div>
+		</div>
+	</div>
+	<aside class="notes">
+		Tell this as a story — let each ping land before the next. The point is the flood: ten channels, one mess,
+		and the only hard data you actually have is "current state" (the takings number) with nothing about how it got there.
+		The supplier-invoice ping is deliberate noise — real 3am inboxes are full of it. End on the bug report.
+	</aside>
+</section>
+
+<section>
+	<h2>The Big Ball of Mud</h2>
+	<blockquote class="small fragment">
+		"A haphazardly structured, sprawling, sloppy, duct-tape-and-baling-wire,<br>
+		spaghetti-code jungle."
+		<footer class="xsmall muted" style="margin-top: 0.3em;">— Foote &amp; Yoder, 1997</footer>
+	</blockquote>
+	<p class="fragment" style="font-size: 1.25em; margin-top: 0.8em;">And it's the <span class="highlight">most successful architecture in the world.</span></p>
+	<p class="fragment" style="font-size: 1.7em; margin-top: 0.6em;"><strong>Because it ships.</strong>&nbsp;&nbsp;<span class="stamp">SHIPPED</span></p>
+	<aside class="notes">
+		Cite the paper. Foote and Yoder. Make the point gently: the Big Ball of Mud isn't a moral failing,
+		it's what happens when business pressure consistently outvotes architectural pressure. PHP has been
+		extraordinarily good at letting people ship under pressure — that's a strength <em>and</em> the source of our pain.
+	</aside>
+</section>
+
+<section>
+	<h2>Anatomy of a legacy request</h2>
+	<pre><code class="language-php" data-trim>
+// POST /tab/pay
+$tab = Tab::find($_POST['tab_id']);
+$tab->status = 'paid';
+$tab->paid_at = date('Y-m-d H:i:s');
+$tab->total  = calculate_total($tab);   // hits 3 tables
+$tab->save();                            // fires 2 triggers
+
+apply_loyalty_points($tab);              // updates customer row
+deduct_stock($tab);                      // updates inventory
+email_receipt($tab);                     // sends, sometimes
+sync_to_accounts($tab);                  // POSTs to legacy SOAP
+log_to_audit($tab);                      // append-only, mostly
+	</code></pre>
+	<p class="xsmall muted">Eight side effects. One transaction. What could go wrong?</p>
+	<aside class="notes">
+		This slide should feel painfully familiar. Walk through each line: any one of them can fail, partially succeed,
+		or be silently disabled by a feature flag from 2019. The state in the database at the end is the <em>only</em>
+		record — and it can't tell you which of those steps actually ran.
+	</aside>
+</section>
+
+<section>
+	<h2>CRUD's quiet lie</h2>
+	<p>"The current row is all you need to know."</p>
+	<table>
+		<tr><th>tab_id</th><th>status</th><th>total</th><th>paid_at</th></tr>
+		<tr><td>7</td><td>paid</td><td>£67.50</td><td>2026-05-15 22:14:08</td></tr>
+	</table>
+	<aside class="notes">
+		The central pedagogical moment of Part 1. CRUD records the current state and discards the history that produced it.
+		"We optimised our schema to throw away the only data that could explain a bug." Then move to the next slide for the punchline.
+	</aside>
+</section>
+
+<section>
+	<p class="muted" style="font-size: 1.1em;">Q: How did we get to £67.50?</p>
+	<p class="danger fragment" style="font-size: 3em; margin-top: 0.4em;">A: ¯\_(ツ)_/¯</p>
+	<aside class="notes">
+		Pause here. Let it land. The shrug is the whole point — the database simply cannot tell you.
+	</aside>
+</section>
+
+<section>
+	<h2>The audit trigger graveyard</h2>
+	<pre><code class="language-pgsql" data-trim>
+CREATE TRIGGER tabs_audit AFTER UPDATE ON tabs
+FOR EACH ROW INSERT INTO tabs_audit_log
+  (tab_id, old_total, new_total, changed_at)
+VALUES (OLD.id, OLD.total, NEW.total, NOW());
+	</code></pre>
+	<aside class="notes">
+		Most teams have tried to build audit trails this way. Show the trigger, then move to the next slide for why it rots.
+	</aside>
+</section>
+
+<section>
+	<h2>Why it rots</h2>
+	<ul class="tight small">
+		<li class="fragment">Records <em>that</em> something changed. Not <span class="highlight">why</span>.</li>
+		<li class="fragment">Often disabled "temporarily" in 2021. Still disabled.</li>
+		<li class="fragment">Diverges from the application logic over time.</li>
+	</ul>
+	<aside class="notes">
+		They almost always rot. The triggers capture the wrong granularity — they record column changes, not business
+		events. You end up reverse-engineering intent from diffs, which is exactly the problem we set out to solve.
+	</aside>
+</section>
+
+<section>
+	<h2>The if/else hedge maze</h2>
+	<pre><code class="language-php" data-trim>
+if ($tab->is_happy_hour && !$tab->was_split &&
+    $tab->customer && $tab->customer->loyalty_tier !== 'none' &&
+    !in_array($item->category, ['spirits','wine']) &&
+    $tab->opened_at >= '17:00:00' && $tab->opened_at < '19:00:00') {
+    $price = $item->price * 0.80;
+} elseif ($tab->is_staff && $item->category === 'food') {
+    $price = $item->price * 0.50;
+} elseif (/* ... 14 more branches ... */) {
+    // ...
+}
+	</code></pre>
+	<p class="small muted">The business rule is in here somewhere. Probably.</p>
+	<aside class="notes">
+		Every legacy codebase has a pricing function like this. The business rule has been added to over a decade.
+		Nobody can describe it in English anymore. We're going to come back to this — event sourcing doesn't
+		<em>remove</em> this logic, but it gives you a way to test it against real history.
+	</aside>
+</section>
+
+<section>
+	<h2>The 4am hotfix</h2>
+	<div style="position: relative; display: inline-block; max-width: 100%;">
+	<pre><code class="language-pgsql" data-trim>
+-- ticket #INC-4471, customer escalation, just do it
+UPDATE tabs
+SET total = 53.00, status = 'paid'
+WHERE id = 7;
+
+-- and the loyalty points
+UPDATE customers SET points = points + 53 WHERE id = 412;
+
+COMMIT;
+-- TODO: tell finance on Monday
+	</code></pre>
+	<span class="stamp fragment" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-12deg); font-size: 2.6em; padding: 0.1em 0.5em; background: rgba(15, 15, 26, 0.55); z-index: 20; white-space: nowrap;">DANGER</span>
+	</div>
+	<aside class="notes">
+		Everyone has written this. Or worse: written something like this and forgotten the WHERE clause.
+		The hotfix UPDATE is a confession that the system can't represent the correction as a business event.
+		This is going to be the single biggest "before vs after" of the talk.
+	</aside>
+</section>
+
+<section>
+	<h2>We patched the symptom</h2>
+	<ul class="tight">
+		<li class="fragment">The <span class="highlight">total</span> is now correct in the database</li>
+		<li class="fragment">The <span class="danger">reason</span> the total was wrong is still in the codebase</li>
+		<li class="fragment">Next Friday: same bug, different tab</li>
+		<li class="fragment">The hotfix is now a <span class="danger">forever undocumented exception</span> to the data</li>
+	</ul>
+	<aside class="notes">
+		The cost of CRUD hotfixes isn't just risk — it's that you're treating the data while the code keeps producing
+		bad data. Event sourcing flips this: the fix lives in the event stream <em>and</em> the projection logic,
+		and both are repeatable, replayable, and reviewable.
+	</aside>
+</section>
+
+<section>
+	<h2>Sound familiar?</h2>
+	<p class="small">A quick show of hands.</p>
+	<ul class="tight">
+		<li class="fragment">Inherited a system you didn't write?</li>
+		<li class="fragment">Run an UPDATE in prod in the last 12 months?</li>
+		<li class="fragment">Been unable to explain a bug to a non-technical stakeholder?</li>
+		<li class="fragment">Wished you could rewind production?</li>
+	</ul>
+	<aside class="notes">
+		Audience moment. Slow down. Read the room. This is your transition into "okay, what if there was a better way."
+		If hands go up — and they will — name what you see. "Right, most of you. So this is for us."
+	</aside>
+</section>
+
+<section>
+	<h2>The real cost</h2>
+	<div class="two-col" style="align-items: start;">
+		<div>
+			<h3 class="muted" style="font-size: 0.8em;">What's on the invoice</h3>
+			<ul class="tight xsmall">
+				<li>Bug ticket time</li>
+				<li>Customer refunds</li>
+				<li>Hotfix risk</li>
+			</ul>
+		</div>
+		<div class="fragment">
+			<h3 class="danger">What it actually costs</h3>
+			<ul class="tight" style="font-size: 0.85em;">
+				<li>Bug regressions — same bug, new disguise</li>
+				<li>Refactor paralysis</li>
+				<li>Engineer attrition</li>
+				<li>Stakeholder trust</li>
+			</ul>
+		</div>
+	</div>
+	<p class="fragment" style="margin-top: 0.8em;">The column on the right is the one that <span class="highlight">bankrupts you</span> — and it's the one nobody bills for.</p>
+	<aside class="notes">
+		Make the business case before pivoting to the technique. Let the left (the measurable, almost trivial costs) sit
+		small first, then reveal the right — the costs that dwarf them. The punchline: these are the costs you're already
+		paying. If a manager says "this sounds like over-engineering," point at the right-hand column.
+	</aside>
+</section>
+
+<!-- ==================== PART 2: ENTER EVENT SOURCING ==================== -->
+
+<section>
+	<h2>Part 2</h2>
+	<h3 class="good" style="color: rgb(216, 78, 28);">Enter event sourcing</h3>	<aside class="notes">
+		Pivot. The tone should shift from sympathy to possibility. We've been honest about the pain, now we offer
+		a way out. This section is concept-heavy; the code is coming in Part 3.
+	</aside>
+</section>
+
+<section>
+	<h2>What if we kept the receipts?</h2>
+	<p>Not the till total. The <em>actions that produced it</em>.</p>
+	<div class="stream">
+		<div class="event fragment fade-up">TabOpened { tab: 7, table: "front-window", server: "alex" }</div>
+		<div class="event fragment fade-up">DrinkAddedToTab { tab: 7, item: "Harvey's Pint", price: 5.20 }</div>
+		<div class="event fragment fade-up">DrinkAddedToTab { tab: 7, item: "Lime &amp; Soda", price: 2.50 }</div>
+		<div class="event fragment fade-up">FoodOrderedToTab { tab: 7, item: "Sunday Roast", price: 16.50 }</div>
+		<div class="event fragment fade-up">HappyHourDiscountApplied { tab: 7, amount: 1.04 }</div>
+		<div class="event total fragment fade-up">TabPaid { tab: 7, total: 23.16, method: "card" }</div>
+	</div>
+	<aside class="notes">
+		This is the "aha" slide. Stop and let them read it. Notice: the events are <em>readable English</em>.
+		You can tell what happened without knowing any code. That's not an accident — events should be named
+		in the business's own language (the "ubiquitous language" from DDD).
+	</aside>
+</section>
+
+<section>
+	<h2>Event sourcing, defined</h2>
+	<blockquote>
+		<span class="fragment">Store every state change as an <span class="highlight">immutable event</span>.</span><br>
+		<span class="fragment">The current state is a <span class="highlight">derivation</span>, not the source of truth.</span>
+	</blockquote>
+	<p class="small muted fragment">Events are facts. Facts don't change. Interpretations do.</p>
+	<aside class="notes">
+		Two important words: immutable, derivation. Immutable because the past doesn't change — Friday night's
+		drink really was poured. Derivation because what you <em>do</em> with that fact (loyalty points, VAT calc,
+		nightly takings) can change — and you can recompute it from the same fact tomorrow.
+	</aside>
+</section>
+
+<section>
+	<h2>Immutable past</h2>
+	<table>
+		<tr><th class="danger">Database row</th><th class="highlight">Event</th></tr>
+		<tr class="fragment"><td class="muted">UPDATE</td><td>INSERT only</td></tr>
+		<tr class="fragment"><td class="muted">Truth is now</td><td>Truth is the timeline</td></tr>
+		<tr class="fragment"><td class="muted">Overwrites history</td><td>Appends to history</td></tr>
+		<tr class="fragment"><td class="muted">"What is true?"</td><td>"What happened?"</td></tr>
+	</table>
+	<p class="fragment" style="margin-top: 0.7em;">We don't UPDATE. We don't DELETE. We <span class="highlight">INSERT</span>.</p>
+	<p class="fragment small muted">Storage is cheap. Truth is precious.</p>
+	<aside class="notes">
+		The mental flip. We don't UPDATE. We don't DELETE. We INSERT. Every change is a new row in the event log.
+		Build the rows one at a time so each contrast lands — the CRUD column (pink) is the world we're leaving;
+		the event column (orange) is where we're going. End on "storage is cheap, truth is precious."
+	</aside>
+</section>
+
+<section>
+	<h2>The tab as a stream</h2>
+	<p class="small"><span class="pill">Stream: tab-7</span></p>
+	<div class="stream timeline">
+		<div class="event"><span class="pos">1</span><span class="ev">TabOpened</span><span class="meta">19:42 · alex</span></div>
+		<div class="event"><span class="pos">2</span><span class="ev">DrinkAddedToTab</span><span class="meta">19:44 · alex</span></div>
+		<div class="event"><span class="pos">3</span><span class="ev">DrinkAddedToTab</span><span class="meta">19:51 · alex</span></div>
+		<div class="event"><span class="pos">4</span><span class="ev">FoodOrderedToTab</span><span class="meta">20:02 · jamie</span></div>
+		<div class="event"><span class="pos">5</span><span class="ev">FoodCourseFired</span><span class="meta">20:04 · kitchen</span></div>
+		<div class="event"><span class="pos">6</span><span class="ev">FoodServed</span><span class="meta">20:21 · jamie</span></div>
+		<div class="event"><span class="pos">7</span><span class="ev">HappyHourDiscountApplied</span><span class="meta">20:33 · system</span></div>
+		<div class="event total"><span class="pos">8</span><span class="ev">TabPaid</span><span class="meta">22:14 · alex</span></div>
+	</div>
+	<p class="fragment small muted">That left-hand number is the <span class="highlight">version</span> — we'll lean on it later for optimistic concurrency.</p>
+	<aside class="notes">
+		The stream is per-aggregate. Tab 7 has its own stream. Tab 8 has its own. They're isolated, which is
+		great for concurrency and great for reasoning. The position number (1..8) is the version — reveal that point
+		last and tell them we'll come back to it. Note the actors change (alex, jamie, kitchen, system) — one timeline, many hands.
+	</aside>
+</section>
+
+<section>
+	<h2>State = fold(events)</h2>
+	<pre><code class="language-php" data-trim>
+$tab = new TabState();
+foreach ($eventStore->streamFor('tab-7') as $event) {
+    $tab = $tab->apply($event);
+}
+// $tab is now exactly what it was at 22:14
+	</code></pre>
+	<p class="small fragment">Every read is a replay. Storage is the log. Memory is the projection.</p>
+	<aside class="notes">
+		This is the engine of event sourcing in three lines. Everything else — projections, snapshots, time travel —
+		is an optimisation or a variation on this loop. If they remember nothing else, remember this.
+	</aside>
+</section>
+
+<section>
+	<h2>Command vs Event</h2>
+	<table>
+		<tr><th class="good">Command</th><th class="highlight">Event</th></tr>
+		<tr class="fragment"><td>Imperative</td><td>Declarative</td></tr>
+		<tr class="fragment"><td>"Pay tab 7"</td><td>"Tab 7 was paid"</td></tr>
+		<tr class="fragment"><td>Can be rejected</td><td>Always accepted (it happened)</td></tr>
+		<tr class="fragment"><td>Future tense</td><td>Past tense</td></tr>
+		<tr class="fragment"><td><code>PayTab</code></td><td><code>TabWasPaid</code></td></tr>
+	</table>
+	<p class="fragment small muted" style="margin-top: 0.7em;">A command produces zero or more events.</p>
+	<aside class="notes">
+		The grammar matters. Commands are requests; they can fail validation ("tab is already paid"). Events are
+		statements about what actually happened. Name your events in the past tense — it forces the right mental model.
+	</aside>
+</section>
+
+<section>
+	<h2>Aggregate</h2>
+	<ul class="tight">
+		<li class="fragment">The <span class="highlight">consistency boundary</span></li>
+		<li class="fragment">One aggregate = <span class="highlight">one stream</span></li>
+		<li class="fragment">Decides which commands are valid</li>
+		<li class="fragment">Produces events as the <em>only</em> way to change state</li>
+	</ul>
+	<p class="small muted fragment">In our pub: <code>Tab</code> is an aggregate. <code>KitchenTicket</code> is another.</p>
+	<p class="fragment" style="margin-top: 0.6em;">The smallest thing you'd <span class="highlight">lock</span> for one business operation. A tab — <span class="muted">not the whole pub.</span></p>
+	<aside class="notes">
+		Aggregate is a Domain-Driven Design term. Don't get hung up on it. Practical heuristic: an aggregate is the
+		smallest thing you'd want to lock for a single business operation. A tab. An order. A booking. Not "the whole pub."
+	</aside>
+</section>
+
+<section>
+	<h2>Event store</h2>
+	<ul class="tight">
+		<li class="fragment"><span class="highlight">Append-only</span> log of events</li>
+		<li class="fragment">Per-stream <span class="highlight">ordering</span> guaranteed</li>
+		<li class="fragment">Optimistic concurrency via <span class="highlight">stream version</span></li>
+	</ul>
+	<p class="fragment" style="margin-top: 0.6em;">It can be a <span class="highlight">database table</span>. It really can.</p>
+	<p class="small muted fragment">We'll build one in PHP with PDO in Part 3.</p>
+	<aside class="notes">
+		De-mystify the event store. People think they need EventStoreDB or Kafka. They don't. A MySQL table with
+		(stream_id, version, event_type, payload, recorded_at) and a unique constraint on (stream_id, version) is
+		a perfectly adequate event store for most PHP shops.
+	</aside>
+</section>
+
+<section>
+	<h2>Projection (a.k.a. read model)</h2>
+	<p>One stream of events. Ask a different question, get a different shape.</p>
+	<div class="viewstack">
+		<div class="view fragment fade-in-then-out" data-fragment-index="0">
+			<h3 class="small highlight">Cashier's view</h3>
+			<ul class="tight">
+				<li>Total per tab</li>
+				<li>Open / paid / split</li>
+				<li>VAT breakdown</li>
+			</ul>
+		</div>
+		<div class="view fragment fade-in-then-out" data-fragment-index="1">
+			<h3 class="small good">Kitchen view</h3>
+			<ul class="tight">
+				<li>Active tickets</li>
+				<li>Course order</li>
+				<li>Allergen flags</li>
+			</ul>
+		</div>
+		<div class="view fragment fade-in-then-out" data-fragment-index="2">
+			<h3 class="small highlight">Manager's view</h3>
+			<ul class="tight">
+				<li>Sales by hour</li>
+				<li>Covers tonight</li>
+				<li>Avg spend per head</li>
+			</ul>
+		</div>
+		<div class="view fragment fade-in-then-out" data-fragment-index="3">
+			<h3 class="small good">Loyalty view</h3>
+			<ul class="tight">
+				<li>Points earned</li>
+				<li>Member visits</li>
+				<li>Favourite drinks</li>
+			</ul>
+		</div>
+		<div class="view fragment fade-in-then-out" data-fragment-index="4">
+			<h3 class="small highlight">Accountant's view</h3>
+			<ul class="tight">
+				<li>Daily takings</li>
+				<li>VAT owed</li>
+				<li>Cash vs card</li>
+			</ul>
+		</div>
+		<div class="viewgrid">
+			<div class="minicard fragment" data-fragment-index="5">
+				<h3 class="highlight">Cashier</h3>
+				<ul><li>Total per tab</li><li>Open / paid / split</li><li>VAT breakdown</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="5">
+				<h3 class="good">Kitchen</h3>
+				<ul><li>Active tickets</li><li>Course order</li><li>Allergen flags</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="5">
+				<h3 class="highlight">Manager</h3>
+				<ul><li>Sales by hour</li><li>Covers tonight</li><li>Avg spend per head</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="5">
+				<h3 class="good">Loyalty</h3>
+				<ul><li>Points earned</li><li>Member visits</li><li>Favourite drinks</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="5">
+				<h3 class="highlight">Accountant</h3>
+				<ul><li>Daily takings</li><li>VAT owed</li><li>Cash vs card</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="6">
+				<h3 class="good">Server</h3>
+				<ul><li>My tables</li><li>Tips tonight</li><li>Open orders</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="6">
+				<h3 class="highlight">Inventory</h3>
+				<ul><li>Kegs remaining</li><li>Low-stock alerts</li><li>Wastage</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="6">
+				<h3 class="good">Marketing</h3>
+				<ul><li>Popular items</li><li>Quiet nights</li><li>Promo uptake</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="6">
+				<h3 class="highlight">Compliance</h3>
+				<ul><li>Age-checks logged</li><li>Allergen sign-offs</li><li>Incident log</li></ul>
+			</div>
+			<div class="minicard fragment" data-fragment-index="6">
+				<h3 class="good">Owner</h3>
+				<ul><li>Revenue vs target</li><li>Labour %</li><li>Best / worst nights</li></ul>
+			</div>
+		</div>
+	</div>
+	<div class="punchswap">
+		<p class="small fragment fade-in-then-out" data-fragment-index="5"><span class="highlight">Same events.</span> Five shapes. Five audiences. <span class="highlight">Add a sixth tomorrow.</span></p>
+		<p class="small fragment" data-fragment-index="6"><span class="highlight">Same events.</span> Ten shapes. Ten audiences. <span class="highlight">Add more tomorrow.</span></p>
+	</div>
+	<aside class="notes">
+		Projections are read-only, disposable, rebuildable. If you mess up the projection logic, you fix the code
+		and replay. That property — "rebuildable from the events" — is what enables the safety-net pattern later.
+	</aside>
+</section>
+
+<section>
+	<h2>Process manager (briefly)</h2>
+	<p>Listens to events. Decides what command to issue next.</p>
+	<div class="pmflow">
+		<span class="event total">TabPaid</span>
+		<span class="arrow">→</span>
+		<span class="pm">process manager</span>
+		<span class="arrow">→</span>
+		<div class="cmds">
+			<div class="event fragment fade-up">AwardLoyaltyPoints</div>
+			<div class="event fragment fade-up">SendReceiptEmail</div>
+			<div class="event fragment fade-up">DeductStock</div>
+			<div class="event muted fragment fade-up">…and five more, each its own listener</div>
+		</div>
+	</div>
+	<p class="small fragment" style="margin: 0.3em 0;">One fact in. Many commands out — <span class="highlight">each fails and retries on its own.</span></p>
+	<p class="xsmall muted fragment" style="margin: 0.2em 0;">That legacy <code>save()</code> with eight side effects in one transaction? This is it, decomposed.</p>
+	<aside class="notes">
+		Quick mention — we won't dwell. Process managers (a.k.a. sagas) are how you decompose the legacy
+		"do eight things in one transaction" function. Each side effect becomes its own listener, each can fail
+		and retry independently, each is traceable. We'll see one example later.
+	</aside>
+</section>
+
+<section>
+	<h2>The whole picture</h2>
+	<div class="pipeline">
+		<div class="stage fragment">
+			<div class="node">
+				<span class="lbl">Command</span>
+				<code class="highlight">PayTab</code>
+			</div>
+		</div>
+		<div class="stage fragment">
+			<span class="arrow">→</span>
+			<div class="node">
+				<span class="lbl">Aggregate</span>
+				<code>Tab</code> <small>loads events, decides</small>
+			</div>
+		</div>
+		<div class="stage fragment">
+			<span class="arrow">→</span>
+			<div class="node store">
+				<span class="lbl">Event Store</span>
+				append <code class="highlight">TabPaid</code>
+			</div>
+		</div>
+		<div class="stage fragment">
+			<span class="arrow">→</span>
+			<div class="node">
+				<span class="lbl">Projections</span>
+				cashier · kitchen · finance
+			</div>
+		</div>
+		<div class="stage fragment">
+			<span class="arrow">→</span>
+			<div class="node">
+				<span class="lbl">Read APIs</span>
+				serve the views
+			</div>
+		</div>
+	</div>
+	<p class="small fragment"><span class="highlight">Command in. Event out. Projection updated. Read API serves it.</span> Everything else is detail.</p>
+	<aside class="notes">
+		This is the whole architecture. Keep coming back to this picture. Command in, event out, projection updated,
+		read API serves it. Everything else is detail.
+	</aside>
+</section>
+
+<section>
+	<h2>CRUD vs Event Sourcing</h2>
+	<table style="font-size: 0.5em;">
+		<tr><th></th><th class="danger">CRUD</th><th class="highlight">Event Sourcing</th></tr>
+		<tr class="fragment"><td>Source of truth</td><td class="muted">Current row</td><td class="highlight">Event log</td></tr>
+		<tr class="fragment"><td>History</td><td class="muted">Lost on UPDATE</td><td class="highlight">Built-in</td></tr>
+		<tr class="fragment"><td>Audit</td><td class="muted">Bolt-on triggers</td><td class="highlight">Free</td></tr>
+		<tr class="fragment"><td>Fix a bug</td><td class="muted">UPDATE prod</td><td class="highlight">Replay with new code</td></tr>
+		<tr class="fragment"><td>Multiple read shapes</td><td class="muted">JOIN harder</td><td class="highlight">Add a projection</td></tr>
+		<tr class="fragment"><td>Schema migration</td><td class="muted">ALTER TABLE</td><td class="highlight">Add event version</td></tr>
+		<tr class="fragment"><td>Storage</td><td class="good">Compact</td><td class="danger">Larger</td></tr>
+		<tr class="fragment"><td>Learning curve</td><td class="good">Familiar</td><td class="danger">Real</td></tr>
+	</table>
+	<p class="small fragment">Not a free lunch — the bottom two are <span class="danger">real costs</span>. The top six are why we pay them.</p>
+	<aside class="notes">
+		Be honest on the last two rows. We're not selling a free lunch. Storage cost is rarely actually a problem
+		— events are tiny compared to logs or media. The learning curve is real and we'll address it in the
+		strangling section.
+	</aside>
+</section>
+
+<section>
+	<h2>What we get for free</h2>
+	<ul class="tight">
+		<li class="fragment">Complete audit trail (with intent, not just diffs)</li>
+		<li class="fragment">Time travel — state at any point in the past</li>
+		<li class="fragment">Multiple read models from one source</li>
+		<li class="fragment">Test fixtures = <span class="highlight">real production sequences</span></li>
+		<li class="fragment">Postmortems that read like English</li>
+		<li class="fragment">"Why did this happen?" becomes answerable</li>
+	</ul>
+	<aside class="notes">
+		Hammer the benefits. Especially "test fixtures = real sequences" — being able to capture a production bug
+		as the actual event stream that produced it, and replay it locally with a unit test, is genuinely a
+		superpower. We'll demo that in Part 4.
+	</aside>
+</section>
+
+<section>
+	<h2>What it costs</h2>
+	<ul class="tight">
+		<li class="fragment"><span class="danger">Eventual consistency</span> between writes and read models</li>
+		<li class="fragment">A genuinely new mental model for the team</li>
+		<li class="fragment">More storage (cheap, but not zero)</li>
+		<li class="fragment">Event schema evolution is a real discipline</li>
+		<li class="fragment">Tooling is less mature than CRUD in PHP-land</li>
+	</ul>
+	<aside class="notes">
+		Eventual consistency is the one that bites people. The write goes "I added a drink" and the projection
+		takes 50ms to catch up. UIs need to handle this. We'll touch on patterns for it. Schema evolution we'll
+		cover in detail in Part 5 — upcasters.
+	</aside>
+</section>
+
+<section>
+	<h2>Three myths</h2>
+	<ul class="tight">
+		<li class="fragment">
+			<span class="danger">✗ Myth:</span> You need Kafka / Axon / a special database.
+			<span class="fragment good" style="display: block;">✓ Truth: a <span class="highlight">MySQL table</span> works fine.</span>
+		</li>
+		<li class="fragment">
+			<span class="danger">✗ Myth:</span> You have to event-source the whole system.
+			<span class="fragment good" style="display: block;">✓ Truth: one bounded context is enough.</span>
+		</li>
+		<li class="fragment">
+			<span class="danger">✗ Myth:</span> It's only worth it for banks and huge systems.
+			<span class="fragment good" style="display: block;">✓ Truth: one pub tab is plenty.</span>
+		</li>
+	</ul>
+	<aside class="notes">
+		These come up in Q&A every time. Address them now and you save 20 minutes later. The "MySQL is fine" point
+		is especially important for PHP shops who don't want a new ops dependency.
+	</aside>
+</section>
+
+<!-- ==================== PART 3: BUILDING IT IN PLAIN PHP ==================== -->
+
+<section>
+	<h2>Part 3</h2>
+	<h3 class="good" style="color: rgb(216, 78, 28);">Building it in plain PHP</h3>	<aside class="notes">
+		Heads up to the audience: this section is dense. Slides will mostly be code. We're going to build a
+		minimal but real event-sourced Tab aggregate, with a PDO event store, in plain PHP. No framework.
+		No library. Just the standard library.
+	</aside>
+</section>
+
+<section>
+	<h2>The Crooked Anchor</h2>
+	<p>Tonight we'll model:</p>
+	<p style="line-height: 2.2;">
+		<span class="pill fragment fade-up">Opening a tab</span>
+		<span class="pill fragment fade-up">Adding drinks &amp; food</span>
+		<span class="pill fragment fade-up">Firing courses to the kitchen</span>
+		<span class="pill fragment fade-up">Allergen warnings</span>
+		<span class="pill fragment fade-up">Discounts</span>
+		<span class="pill fragment fade-up">Splitting &amp; paying</span>
+		<span class="pill fragment fade-up">Voiding mistakes</span>
+	</p>
+	<aside class="notes">
+		Set the scope. Enough surface area to be interesting; small enough to fit in a section. Reassure them:
+		the code is opinionated for teaching — production code would have more validation, more types, more tests.
+	</aside>
+</section>
+
+<section>
+	<h2>The events we'll model</h2>
+	<div class="eventgrid">
+		<div class="event">TabOpened</div>
+		<div class="event">DrinkAddedToTab</div>
+		<div class="event">FoodOrderedToTab</div>
+		<div class="event">KitchenCourseFired</div>
+		<div class="event">FoodServed</div>
+		<div class="event">ItemReturnedToKitchen</div>
+		<div class="event">AllergenWarningRecorded</div>
+		<div class="event">DiscountApplied</div>
+		<div class="event">TabSplit</div>
+		<div class="event">TabPaid</div>
+		<div class="event">TabVoided</div>
+	</div>
+	<aside class="notes">
+		Eleven events. Notice the names — all past tense, all in the language a publican would actually use.
+		"FoodOrderedToTab" not "TabFoodInsertRequest". Vocabulary discipline pays off later when you read
+		event streams in postmortems.
+	</aside>
+</section>
+
+<section>
+	<h2>A base event interface</h2>
+	<pre><code class="language-php" data-trim>
+namespace CrookedAnchor\Events;
+
+interface DomainEvent
+{
+    public function aggregateId(): string;
+    public function occurredAt(): \DateTimeImmutable;
+    public function eventType(): string;
+    public function payload(): array;
+}
+	</code></pre>
+	<p class="small muted">Four methods. That's the whole contract.</p>
+	<aside class="notes">
+		Keep the interface dead simple. Some libraries add more (metadata, causation IDs, correlation IDs) —
+		we'll mention those later. For now, four methods is plenty to make the rest work.
+	</aside>
+</section>
+
+<section>
+	<h2>An event, in full</h2>
+	<pre><code class="language-php" data-trim>
+final class DrinkAddedToTab implements DomainEvent
+{
+    public function __construct(
+        private readonly string $tabId,
+        private readonly string $item,
+        private readonly int $priceInPence,
+        private readonly string $addedBy,
+        private readonly \DateTimeImmutable $occurredAt,
+    ) {}
+
+    public function aggregateId(): string { return $this->tabId; }
+    public function occurredAt(): \DateTimeImmutable { return $this->occurredAt; }
+    public function eventType(): string { return 'drink_added_to_tab'; }
+
+    public function payload(): array
+    {
+        return [
+            'item' => $this->item,
+            'price_in_pence' => $this->priceInPence,
+            'added_by' => $this->addedBy,
+        ];
+    }
+
+    public function item(): string { return $this->item; }
+    public function priceInPence(): int { return $this->priceInPence; }
+}
+	</code></pre>
+	<aside class="notes">
+		Immutable. Readonly properties. Plain PHP 8.1+. The payload() method is what we'll serialise to the
+		event store. The named getters are what the aggregate uses to apply the event. Note: prices in pence —
+		never store money as floats. Burned-in good habit.
+	</aside>
+</section>
+
+<section>
+	<h2>The aggregate root</h2>
+	<div class="two-col codecols">
+		<pre><code class="language-php" data-trim>
+abstract class AggregateRoot
+{
+    /** @var DomainEvent[] */
+    private array $pendingEvents = [];
+    private int $version = 0;
+
+    public function version(): int
+    {
+        return $this->version;
+    }
+
+    /** @return DomainEvent[] */
+    public function releaseEvents(): array
+    {
+        $events = $this->pendingEvents;
+        $this->pendingEvents = [];
+        return $events;
+    }
+		</code></pre>
+		<pre><code class="language-php" data-trim>
+    protected function recordThat(
+        DomainEvent $event
+    ): void {
+        $this->apply($event);
+        $this->pendingEvents[] = $event;
+        $this->version++;
+    }
+
+    public function replay(iterable $events): void
+    {
+        foreach ($events as $event) {
+            $this->apply($event);
+            $this->version++;
+        }
+    }
+
+    abstract protected function apply(
+        DomainEvent $event
+    ): void;
+}
+		</code></pre>
+	</div>
+	<aside class="notes">
+		The heart of the pattern. Two ways events arrive: <code>recordThat</code> for new events produced by a command,
+		and <code>replay</code> for events loaded from the store. Both go through <code>apply</code>. The
+		<code>pendingEvents</code> array is what gets persisted at the end of the request.
+	</aside>
+</section>
+
+<section>
+	<h2>The Tab aggregate (1/5)</h2>
+	<pre><code class="language-php" data-trim>
+final class Tab extends AggregateRoot
+{
+    private string $tabId;
+    private string $tableLabel;
+    private string $status = 'open'; // open | split | paid | voided
+    private int $runningTotalPence = 0;
+    /** @var array&lt;string, int&gt; itemId =&gt; quantity */
+    private array $unservedFood = [];
+    private array $allergenWarnings = [];
+
+    public static function open(
+        string $tabId, string $tableLabel, string $server
+    ): self {
+        $tab = new self();
+        $tab->recordThat(new TabOpened(
+            $tabId, $tableLabel, $server, new \DateTimeImmutable()
+        ));
+        return $tab;
+    }
+
+    public static function fromHistory(iterable $events): self
+    {
+        $tab = new self();
+        $tab->replay($events);
+        return $tab;
+    }
+	</code></pre>
+	<aside class="notes">
+		Two named constructors. <code>open</code> creates a brand new tab and emits the first event.
+		<code>fromHistory</code> is what the repository uses to rehydrate a tab from the store. Notice we never
+		expose a regular constructor — you can't accidentally create a Tab in an inconsistent state.
+	</aside>
+</section>
+
+<section>
+	<h2>The Tab aggregate (2/5)</h2>
+	<pre><code class="language-php" data-trim>
+    public function addDrink(string $item, int $priceInPence, string $by): void
+    {
+        $this->ensureOpen();
+        $this->recordThat(new DrinkAddedToTab(
+            $this->tabId, $item, $priceInPence, $by, new \DateTimeImmutable()
+        ));
+    }
+
+    public function orderFood(
+        string $item, int $priceInPence, array $allergens, string $by
+    ): void {
+        $this->ensureOpen();
+        $this->recordThat(new FoodOrderedToTab(
+            $this->tabId, $item, $priceInPence, $allergens, $by,
+            new \DateTimeImmutable()
+        ));
+        foreach ($allergens as $a) {
+            $this->recordThat(new AllergenWarningRecorded(
+                $this->tabId, $item, $a, new \DateTimeImmutable()
+            ));
+        }
+    }
+	</code></pre>
+	<aside class="notes">
+		The command methods. Each validates business rules <em>before</em> recording the event — once an event is
+		recorded, it's a fact, so validation has to be a guard up front. Note <code>orderFood</code> fans out an
+		<code>AllergenWarningRecorded</code> event per allergen.
+	</aside>
+</section>
+
+<section>
+	<h2>The Tab aggregate (3/5)</h2>
+	<pre><code class="language-php" data-trim>
+    public function pay(string $method, int $amountInPence): void
+    {
+        $this->ensureOpen();
+        if ($amountInPence &lt; $this-&gt;runningTotalPence) {
+            throw new \DomainException('Underpayment for tab.');
+        }
+        $this->recordThat(new TabPaid(
+            $this->tabId, $method, $amountInPence, new \DateTimeImmutable()
+        ));
+    }
+
+    private function ensureOpen(): void
+    {
+        if ($this-&gt;status !== 'open') {
+            throw new \DomainException("Tab is {$this-&gt;status}, cannot modify.");
+        }
+    }
+	</code></pre>
+	<aside class="notes">
+		<code>pay</code> guards against underpayment before recording <code>TabPaid</code>. <code>ensureOpen</code>
+		is the invariant every command calls first — it's what protects against modifying a closed tab.
+	</aside>
+</section>
+
+<section>
+	<h2>The Tab aggregate (4/5)</h2>
+	<pre><code class="language-php" data-trim>
+    protected function apply(DomainEvent $event): void
+    {
+        match (true) {
+            $event instanceof TabOpened           => $this->whenOpened($event),
+            $event instanceof DrinkAddedToTab     => $this->whenDrinkAdded($event),
+            $event instanceof FoodOrderedToTab    => $this->whenFoodOrdered($event),
+            $event instanceof FoodServed          => $this->whenFoodServed($event),
+            $event instanceof AllergenWarningRecorded
+                                                  => $this->whenAllergenWarning($event),
+            $event instanceof TabPaid             => $this->whenPaid($event),
+            $event instanceof TabVoided           => $this->whenVoided($event),
+            default => null, // unknown / future events are ignored
+        };
+    }
+
+    private function whenOpened(TabOpened $e): void
+    {
+        $this-&gt;tabId = $e-&gt;aggregateId();
+        $this-&gt;tableLabel = $e-&gt;tableLabel();
+    }
+	</code></pre>
+	<aside class="notes">
+		The dispatcher: <code>apply()</code> routes each event to its <code>when*</code> handler via match. The
+		<code>default => null</code> matters — it lets you safely deploy code that meets new event types it
+		doesn't yet know how to handle. <code>whenOpened</code> sets the tab's identity from the first event.
+	</aside>
+</section>
+
+<section>
+	<h2>The Tab aggregate (5/5)</h2>
+	<pre><code class="language-php" data-trim>
+    private function whenDrinkAdded(DrinkAddedToTab $e): void
+    {
+        $this-&gt;runningTotalPence += $e-&gt;priceInPence();
+    }
+
+    private function whenFoodOrdered(FoodOrderedToTab $e): void
+    {
+        $this-&gt;runningTotalPence += $e-&gt;priceInPence();
+        $this-&gt;unservedFood[$e-&gt;item()] = ($this-&gt;unservedFood[$e-&gt;item()] ?? 0) + 1;
+    }
+
+    private function whenPaid(TabPaid $e): void
+    {
+        $this-&gt;status = 'paid';
+    }
+    // ... etc
+}
+	</code></pre>
+	<aside class="notes">
+		The state-change methods. Pure functions of (state, event) → new state. No side effects, no IO, no
+		dependencies — that's what makes them safe to call on either new events or replayed events.
+	</aside>
+</section>
+
+<section>
+	<h2>The event store interface</h2>
+	<pre><code class="language-php" data-trim>
+interface EventStore
+{
+    /**
+     * @param DomainEvent[] $events
+     * @throws ConcurrencyException
+     */
+    public function append(
+        string $streamId,
+        int $expectedVersion,
+        array $events,
+    ): void;
+
+    /** @return iterable&lt;DomainEvent&gt; */
+    public function loadStream(string $streamId): iterable;
+
+    /** @return iterable&lt;DomainEvent&gt; */
+    public function loadAllFrom(int $globalPosition = 0): iterable;
+}
+	</code></pre>
+	<p class="small muted"><code>expectedVersion</code> = optimistic concurrency control.</p>
+	<aside class="notes">
+		Three operations. Append (with expected version to detect concurrent writes). Load one stream (for
+		rehydrating an aggregate). Load all events from a global position (for building projections).
+		That's the whole contract. Everything else is implementation detail.
+	</aside>
+</section>
+
+<section>
+	<h2>The event store table</h2>
+	<pre><code class="language-pgsql" data-trim>
+CREATE TABLE events (
+    global_position BIGINT       NOT NULL AUTO_INCREMENT,
+    stream_id       VARCHAR(64)  NOT NULL,
+    stream_version  INT          NOT NULL,
+    event_type      VARCHAR(64)  NOT NULL,
+    payload         JSON         NOT NULL,
+    occurred_at     DATETIME(6)  NOT NULL,
+    recorded_at     DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+
+    PRIMARY KEY (global_position),
+    UNIQUE KEY uq_stream_version (stream_id, stream_version),
+    INDEX idx_event_type (event_type),
+    INDEX idx_stream (stream_id)
+) ENGINE=InnoDB;
+	</code></pre>
+	<p class="small muted">One table. That's your event store.</p>
+	<aside class="notes">
+		The unique constraint on (stream_id, stream_version) is the optimistic concurrency mechanism. Two writers
+		trying to append version 5 to the same stream — one of them gets a duplicate key error. That's how we
+		detect a conflict. global_position gives projections a totally-ordered global stream to consume.
+	</aside>
+</section>
+
+<section>
+	<h2>PDO event store (1/2)</h2>
+	<pre><code class="language-php fit" data-trim>
+final class PdoEventStore implements EventStore
+{
+    public function __construct(
+        private readonly \PDO $pdo,
+        private readonly EventSerializer $serializer,
+    ) {}
+
+    public function append(string $streamId, int $expectedVersion, array $events): void
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $stmt = $this->pdo->prepare(
+                'INSERT INTO events
+                   (stream_id, stream_version, event_type, payload, occurred_at)
+                 VALUES (:sid, :ver, :type, :payload, :occurred)'
+            );
+            $version = $expectedVersion;
+            foreach ($events as $event) {
+                $version++;
+                $stmt->execute([
+                    ':sid'      => $streamId,
+                    ':ver'      => $version,
+                    ':type'     => $event->eventType(),
+                    ':payload'  => json_encode($event->payload(), JSON_THROW_ON_ERROR),
+                    ':occurred' => $event->occurredAt()->format('Y-m-d H:i:s.u'),
+                ]);
+            }
+            $this->pdo->commit();
+        } catch (\PDOException $e) {
+            $this->pdo->rollBack();
+            if ($e->getCode() === '23000') { // duplicate key
+                throw new ConcurrencyException(
+                    "Stream {$streamId} expected v{$expectedVersion}, conflict."
+                );
+            }
+            throw $e;
+        }
+    }
+	</code></pre>
+	<aside class="notes">
+		Append in a transaction. Increment the version per event. Duplicate key on (stream_id, stream_version)
+		is the concurrency signal — translate it into a domain-meaningful exception. The caller (the repository)
+		decides whether to retry.
+	</aside>
+</section>
+
+<section>
+	<h2>PDO event store (2/2)</h2>
+	<pre><code class="language-php fit" data-trim>
+    public function loadStream(string $streamId): iterable
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT event_type, payload, occurred_at
+             FROM events
+             WHERE stream_id = :sid
+             ORDER BY stream_version ASC'
+        );
+        $stmt->execute([':sid' => $streamId]);
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            yield $this->serializer->deserialize(
+                $row['event_type'],
+                json_decode($row['payload'], true, 512, JSON_THROW_ON_ERROR),
+                new \DateTimeImmutable($row['occurred_at']),
+                $streamId,
+            );
+        }
+    }
+
+    public function loadAllFrom(int $globalPosition = 0): iterable
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT global_position, stream_id, event_type, payload, occurred_at
+             FROM events
+             WHERE global_position &gt; :pos
+             ORDER BY global_position ASC'
+        );
+        $stmt->execute([':pos' => $globalPosition]);
+        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+            yield $row['global_position'] =&gt; $this->serializer->deserialize(
+                $row['event_type'],
+                json_decode($row['payload'], true, 512, JSON_THROW_ON_ERROR),
+                new \DateTimeImmutable($row['occurred_at']),
+                $row['stream_id'],
+            );
+        }
+    }
+}
+	</code></pre>
+	<aside class="notes">
+		Generators (<code>yield</code>) so we don't load the whole stream into memory. The serializer is
+		responsible for mapping (event_type, payload) back to a typed DomainEvent. We won't show the serializer
+		— it's a switch statement, you can imagine it.
+	</aside>
+</section>
+
+<section>
+	<h2>The repository</h2>
+	<pre><code class="language-php" data-trim>
+final class TabRepository
+{
+    public function __construct(private readonly EventStore $store) {}
+
+    public function load(string $tabId): Tab
+    {
+        $events = iterator_to_array($this->store->loadStream("tab-{$tabId}"));
+        if ($events === []) {
+            throw new \RuntimeException("Tab {$tabId} not found.");
+        }
+        return Tab::fromHistory($events);
+    }
+
+    public function save(Tab $tab): void
+    {
+        $newEvents = $tab->releaseEvents();
+        if ($newEvents === []) {
+            return;
+        }
+        $expectedVersion = $tab->version() - count($newEvents);
+        $this->store->append(
+            "tab-{$tab->id()}",
+            $expectedVersion,
+            $newEvents,
+        );
+    }
+}
+	</code></pre>
+	<aside class="notes">
+		The repository is the bridge between aggregate and event store. Notice how thin it is. <code>load</code>
+		streams the events, rehydrates the aggregate. <code>save</code> takes the pending events and appends them.
+		Expected version is "what version was I at before I started?" — so the store can detect concurrent edits.
+	</aside>
+</section>
+
+<section>
+	<h2>Putting it together: open a tab</h2>
+	<pre><code class="language-php" data-trim>
+$store = new PdoEventStore($pdo, new EventSerializer());
+$tabs  = new TabRepository($store);
+
+// Alex opens a tab for the front window table
+$tab = Tab::open(
+    tabId: 'tab-2026-05-15-7',
+    tableLabel: 'front-window',
+    server: 'alex',
+);
+$tabs->save($tab);
+
+// Later — Alex adds two drinks
+$tab = $tabs->load('tab-2026-05-15-7');
+$tab->addDrink("Harvey's Sussex Best, pint", 520, 'alex');
+$tab->addDrink('Lime &amp; soda', 250, 'alex');
+$tabs->save($tab);
+
+// Jamie orders food
+$tab = $tabs->load('tab-2026-05-15-7');
+$tab->orderFood('Sunday roast (beef)', 1650, ['gluten','mustard'], 'jamie');
+$tabs->save($tab);
+	</code></pre>
+	<aside class="notes">
+		This is what application code looks like end to end. Load. Mutate. Save. The fact that we're event-sourcing
+		is barely visible at the call site — and that's the point. The discipline is in the aggregate; the rest
+		of the app just sees a normal-looking domain object.
+	</aside>
+</section>
+
+<section>
+	<h2>The cashier's projection</h2>
+	<pre><code class="language-php fit" data-trim>
+final class CashierProjection
+{
+    public function __construct(private readonly \PDO $readDb) {}
+
+    public function handle(DomainEvent $event): void
+    {
+        match (true) {
+            $event instanceof TabOpened          => $this->onOpened($event),
+            $event instanceof DrinkAddedToTab    => $this->addToTotal($event-&gt;aggregateId(), $event-&gt;priceInPence()),
+            $event instanceof FoodOrderedToTab   => $this->addToTotal($event-&gt;aggregateId(), $event-&gt;priceInPence()),
+            $event instanceof DiscountApplied    => $this->addToTotal($event-&gt;aggregateId(), -$event-&gt;amountInPence()),
+            $event instanceof TabPaid            => $this->markPaid($event),
+            default                              => null,
+        };
+    }
+
+    private function onOpened(TabOpened $e): void
+    {
+        $this-&gt;readDb-&gt;prepare(
+          'INSERT INTO tab_summary
+             (tab_id, table_label, status, total_pence, opened_at)
+           VALUES (?, ?, "open", 0, ?)'
+        )-&gt;execute([$e-&gt;aggregateId(), $e-&gt;tableLabel(), $e-&gt;occurredAt()-&gt;format(DATE_ATOM)]);
+    }
+
+    private function addToTotal(string $tabId, int $delta): void
+    {
+        $this-&gt;readDb-&gt;prepare(
+          'UPDATE tab_summary SET total_pence = total_pence + ? WHERE tab_id = ?'
+        )-&gt;execute([$delta, $tabId]);
+    }
+}
+	</code></pre>
+	<aside class="notes">
+		The projection's job: turn events into row updates on a read table. It owns its own database (or schema,
+		or table set). Note: this can use UPDATE — the projection table isn't the source of truth, it's a
+		<em>cache</em> we can rebuild any time.
+	</aside>
+</section>
+
+<section>
+	<h2>A different projection, same events</h2>
+	<pre><code class="language-php" data-trim>
+final class KitchenTicketProjection
+{
+    public function handle(DomainEvent $event): void
+    {
+        match (true) {
+            $event instanceof FoodOrderedToTab   =&gt; $this-&gt;openTicket($event),
+            $event instanceof KitchenCourseFired =&gt; $this-&gt;markFired($event),
+            $event instanceof FoodServed         =&gt; $this-&gt;closeTicket($event),
+            $event instanceof ItemReturnedToKitchen =&gt; $this-&gt;reopenTicket($event),
+            $event instanceof AllergenWarningRecorded =&gt; $this-&gt;flagAllergen($event),
+            default =&gt; null,
+        };
+    }
+    // ...
+}
+	</code></pre>
+	<p>Same events. Completely different read shape. Different deployment cadence. Different team.</p>
+	<aside class="notes">
+		One of the most valuable properties: multiple projections, all independent. The cashier and the kitchen
+		don't share a schema. Each can be evolved on its own schedule. Each can be rebuilt without touching the other.
+	</aside>
+</section>
+
+<section>
+	<h2>How projections run</h2>
+	<pre><code class="language-php" data-trim>
+// A simple catch-up subscriber: poll, dispatch, checkpoint
+final class Catchup
+{
+    public function __construct(
+        private readonly EventStore $store,
+        private readonly array $projections, // [name =&gt; handler]
+        private readonly Checkpoints $checkpoints,
+    ) {}
+
+    public function tick(): void
+    {
+        foreach ($this-&gt;projections as $name =&gt; $projection) {
+            $position = $this-&gt;checkpoints-&gt;get($name);
+            foreach ($this-&gt;store-&gt;loadAllFrom($position) as $newPos =&gt; $event) {
+                $projection-&gt;handle($event);
+                $this-&gt;checkpoints-&gt;set($name, $newPos);
+            }
+        }
+    }
+}
+	</code></pre>
+	<p class="small muted">Run via cron, supervisor, or a long-lived worker.</p>
+	<aside class="notes">
+		The catch-up subscriber pattern. Each projection has its own checkpoint — its position in the global stream.
+		On each tick, fetch new events from where it left off, process them, save the checkpoint. Idempotent.
+		Crash-safe. Boring. Good.
+	</aside>
+</section>
+
+<section>
+	<h2>Demo: a Friday night in 10 events</h2>
+	<div class="stream">
+		<div class="event fragment fade-up">19:42 · TabOpened { tab: 7, table: front-window, alex }</div>
+		<div class="event fragment fade-up">19:44 · DrinkAddedToTab { 7, Harvey's pint, 520 }</div>
+		<div class="event fragment fade-up">19:51 · DrinkAddedToTab { 7, Lime &amp; soda, 250 }</div>
+		<div class="event fragment fade-up">20:02 · FoodOrderedToTab { 7, Sunday roast, 1650 }</div>
+		<div class="event fragment fade-up">20:02 · AllergenWarningRecorded { 7, gluten }</div>
+		<div class="event fragment fade-up">20:02 · AllergenWarningRecorded { 7, mustard }</div>
+		<div class="event fragment fade-up">20:04 · KitchenCourseFired { 7, mains }</div>
+		<div class="event fragment fade-up">20:21 · FoodServed { 7, Sunday roast }</div>
+		<div class="event fragment fade-up">20:33 · DiscountApplied { 7, happy-hour, 104 }</div>
+		<div class="event total fragment fade-up">22:14 · TabPaid { 7, card, 2316 }</div>
+	</div>
+	<aside class="notes">
+		The result of an evening of method calls. Walk through it slowly. Notice you can <em>read</em> what happened
+		with no code knowledge. This stream <em>is</em> the audit log. This stream <em>is</em> the test fixture.
+		This stream <em>is</em> the bug repro. Hammer that.
+	</aside>
+</section>
+
+<section>
+	<h2>Break</h2>
+	<p>~20 minutes. Refill drinks. Heckle by the pizza.</p>
+	<p class="small muted">When we come back: the payoff. Why we just did all of this.</p>
+	<aside class="notes">
+		Take the break. Drink water. Talk to people. The second half is where the value lands — debugging
+		superpowers and the safety net pattern. If anyone is tempted to leave at the break, this is where they
+		should be told the second half is the better half.
+	</aside>
+</section>
+
+<!-- ==================== PART 4: DEBUGGING SUPERPOWERS ==================== -->
+
+<section>
+	<h2>Part 4</h2>
+	<h3 class="good" style="color: rgb(216, 78, 28);">Debugging superpowers</h3>	<aside class="notes">
+		Welcome back. This is where event sourcing earns its keep. We're going to take a bug report and follow
+		it from "the takings are off" to a passing regression test in about twelve minutes.
+	</aside>
+</section>
+
+<section>
+	<h2>Saturday morning. It starts again.</h2>
+	<div class="pile">
+		<div class="ping bad fragment" style="left: 30px; top: 15px; transform: rotate(-3deg);">
+			<span class="chan">SMS · Floor manager</span>Table 7 are kicking off about Friday's bill.
+		</div>
+		<div class="ping bad fragment" style="left: 470px; top: 5px; transform: rotate(3deg);">
+			<span class="chan">Email · Customer</span>I was <span class="danger">overcharged £6.70</span>. Sort it.
+		</div>
+		<div class="ping fragment" style="left: 240px; top: 70px; transform: rotate(4deg);">
+			<span class="chan">Review · 2★</span>Charged full price during happy hour. Won't be back.
+		</div>
+		<div class="ping fragment" style="left: 560px; top: 150px; transform: rotate(-2deg);">
+			<span class="chan">Slack · #front-of-house</span>did happy hour even apply last night??
+		</div>
+		<div class="ping warn fragment" style="left: 25px; top: 190px; transform: rotate(3deg);">
+			<span class="chan">Email · Accountant</span>Friday's discount total looks low.
+		</div>
+		<div class="ping fragment" style="left: 300px; top: 250px; transform: rotate(-3deg);">
+			<span class="chan">Missed call · Owner</span>(2 missed calls)
+		</div>
+		<div class="ping fragment" style="left: 520px; top: 285px; transform: rotate(2deg);">
+			<span class="chan">WhatsApp · Bar staff</span>I DEFINITELY rang it in during happy hour.
+		</div>
+		<div id="bug2-expanded" class="ping bad expanded fragment focus-trigger" style="left: 250px; top: 120px; transform: rotate(0deg);">
+			<span class="chan">bug report · 8:47am Sat</span>"Table 7 overcharged <span class="danger">£6.70</span> — Sunday roast rung at full price during happy hour. Refund wanted."
+		</div>
+		<div class="ping expanded fragment" style="left: 250px; top: 330px; transform: rotate(0deg);">
+			<span class="chan">this time</span>Same noise. But the stream <span class="good">remembers everything</span> — so this one is solvable.
+			<hr>
+			<span class="good">£6.70 refunded. Fixed for good.</span> Here's how ↓
+		</div>
+	</div>
+	<aside class="notes">
+		Callback to the 3am pile-up from the opening. The point: the noise never goes away — Saturday morning is just
+		as messy. Let the pings pile, then settle on the same £6.70 bug. The difference now: we have the stream, so the
+		fix is real. Don't show the mechanics yet — that's the next few slides (CRUD diagnosis vs the ES replay).
+	</aside>
+</section>
+
+<section>
+	<h2>CRUD diagnosis</h2>
+	<ol class="tight">
+		<li class="fragment">SSH to prod, tail logs</li>
+		<li class="fragment">Logs rotated 6am, gone</li>
+		<li class="fragment">Query <code>tabs</code> table — see <code>total = 6750</code></li>
+		<li class="fragment">Hope someone wrote a trigger that captured the discount column</li>
+		<li class="fragment">Read the pricing function. All 400 lines.</li>
+		<li class="fragment"><span class="danger">Guess.</span></li>
+	</ol>
+	<aside class="notes">
+		Walk through this with a tired voice. We've all been here. The diagnosis takes hours. The fix takes minutes.
+		And worst: at the end you're not sure if you really fixed it or just stopped it complaining.
+	</aside>
+</section>
+
+<section>
+	<h2>ES diagnosis: load the stream</h2>
+	<pre><code class="language-php" data-trim>
+$events = iterator_to_array($store-&gt;loadStream('tab-2026-05-15-7'));
+foreach ($events as $e) {
+    printf("%s · %s · %s\n",
+        $e-&gt;occurredAt()-&gt;format('H:i:s'),
+        $e-&gt;eventType(),
+        json_encode($e-&gt;payload())
+    );
+}
+	</code></pre>
+	<p class="fragment small muted">Five lines. Runs on your laptop, against a copy of the production stream.</p>
+	<p class="fragment" style="font-size: 1.25em; margin-top: 0.4em;"><span class="danger">No SSH. No grep. No 400-line guess.</span></p>
+	<p class="fragment" style="font-size: 1.55em;">Saturday morning, <span class="highlight">press play.</span></p>
+	<p class="fragment xsmall muted">(the output speaks for itself — next slide ▸)</p>
+	<aside class="notes">
+		This is THE difference — the direct answer to the CRUD-diagnosis slide. Land it. The previous slide ended on
+		"Guess." This one ends on "press play." Five lines, runs locally against a copy of the prod stream — no need to
+		reproduce the live system. Pause on "Saturday morning, you just press play" before advancing to the output.
+	</aside>
+</section>
+
+<section>
+	<h2>Read it out loud</h2>
+	<div class="stream">
+		<div class="event fragment fade-up">19:42 · tab_opened · {"table":"front-window","server":"alex"}</div>
+		<div class="event fragment fade-up">19:44 · drink_added_to_tab · {"item":"Harvey's pint","price":520}</div>
+		<div class="event fragment fade-up">19:51 · drink_added_to_tab · {"item":"Lime &amp; soda","price":250}</div>
+		<div class="event bad culprit fragment fade-up">20:02 · food_ordered_to_tab · {"item":"Sunday roast","price":1650}</div>
+		<div class="event fragment fade-up">20:04 · kitchen_course_fired · {"course":"mains"}</div>
+		<div class="event fragment fade-up">20:21 · food_served · {"item":"Sunday roast"}</div>
+		<div class="event fragment fade-up">20:33 · discount_applied · {"reason":"happy-hour","amount":104}</div>
+		<div class="event fragment fade-up">22:14 · tab_paid · {"method":"card","amount":2316}</div>
+		<p class="small fragment focus-trigger" style="margin-top: 0.6em;">The roast was rung at <span class="danger">full price</span> — happy hour never touched it. <span class="highlight">Why?</span></p>
+	</div>
+	<aside class="notes">
+		Lean into reading it like a story. "At 19:42 Alex opened the tab. Two drinks. At 20:02 the roast was
+		ordered for £16.50. The discount at 20:33 was only £1.04." Anyone in the audience can spot the issue:
+		the roast should have been discounted too, it wasn't.
+	</aside>
+</section>
+
+<section>
+	<h2>Walk back to the command</h2>
+	<pre><code class="language-php" data-trim>
+// Search the application log for what produced the 20:02 event
+// We added a causation_id to each event when we built the store
+
+$event = $events[3]; // food_ordered_to_tab at 20:02
+$causedBy = $event-&gt;causationId();
+// =&gt; 'cmd-OrderFood-9f3a2b'
+
+// Find the command in the command log
+$cmd = $commandLog-&gt;find('cmd-OrderFood-9f3a2b');
+// =&gt; OrderFood { tab: 7, item: 'Sunday roast', price: 1650 }
+//                                                   ^^^^
+//                                  price was passed in by the till
+	</code></pre>
+	<p class="small">The bug isn't in the aggregate. It's in the <em>price</em> passed to the command.</p>
+	<aside class="notes">
+		Causation IDs are the secret weapon. Every event records the command that caused it, every command records
+		the user action that triggered it. You can follow the chain backwards from a symptom to its root cause —
+		not just to "which method ran" but "which user action started this."
+	</aside>
+</section>
+
+<section>
+	<h2>Replay locally</h2>
+	<pre><code class="language-php" data-trim>
+// Capture the exact production stream
+$prodEvents = $prodStore-&gt;loadStream('tab-2026-05-15-7');
+$json = json_encode(array_map(fn($e) =&gt; [
+    'type' =&gt; $e-&gt;eventType(),
+    'payload' =&gt; $e-&gt;payload(),
+    'occurred_at' =&gt; $e-&gt;occurredAt()-&gt;format(DATE_ATOM),
+], iterator_to_array($prodEvents)));
+
+file_put_contents('test/fixtures/tab-7-friday-night.json', $json);
+	</code></pre>
+	<p class="small muted">That JSON file is now a permanent regression test fixture.</p>
+	<aside class="notes">
+		The real production stream becomes a fixture. No need to anonymise customer data if you scrub the
+		payloads, but the <em>shape</em> of the sequence is what matters. Now you can replay this exact sequence
+		in a unit test, with whatever new pricing logic you want to try.
+	</aside>
+</section>
+
+<section>
+	<h2>given / when / then</h2>
+	<pre><code class="language-php" data-trim>
+public function test_friday_night_roast_gets_happy_hour_discount(): void
+{
+    // GIVEN — the events that already happened
+    $given = $this-&gt;loadFixture('tab-7-friday-night.json');
+
+    // WHEN — we replay them through the new pricing engine
+    $tab = Tab::fromHistory($given);
+
+    // THEN — the running total reflects a discounted roast
+    $this-&gt;assertSame(1646, $tab-&gt;runningTotalPence());
+    //                ^^^^ 2316 - 670 (corrected happy-hour discount)
+}
+	</code></pre>
+	<p class="small">The bug report. The fix. The regression test. All from one stream.</p>
+	<aside class="notes">
+		This is the punchline of Part 4. The same test structure works for every bug. Given the events, when we
+		replay, then we expect X. The fixture is real. The test will tell you if you ever regress.
+	</aside>
+</section>
+
+<section>
+	<h2>Pick a bug, any bug</h2>
+	<div class="buggrid">
+		<div class="bugcard fragment fade-up">"Table 3 split four ways, but the terminal only took three payments — the fourth person's £11.20 vanished off the till."<span class="who">— Floor manager</span></div>
+		<div class="bugcard fragment fade-up">"A nut-allergy customer was served the satay. Kitchen swears the ticket never flagged it. What did the display actually show?"<span class="who">— Head chef</span></div>
+		<div class="bugcard fragment fade-up">"A tab we'd already closed and paid is somehow showing £6.50 owing. Real order, or did someone reopen it by mistake?"<span class="who">— Duty manager</span></div>
+		<div class="bugcard fragment fade-up">"The quiz-night round got added to tab 12 twice. Customer's receipt shows one round. A tablet double-tapped."<span class="who">— Bar lead</span></div>
+		<div class="bugcard fragment fade-up">"We comped a dessert for a complaint, but the discount never came off the total. They paid full and we're on Google reviews now."<span class="who">— Assistant manager</span></div>
+		<div class="bugcard fragment fade-up">"A round of lagers got billed to table 7 — they never ordered them. Whose tab did that round actually belong to?"<span class="who">— Bar staff</span></div>
+	</div>
+	<p class="small fragment">Different symptom, same playbook: <span class="highlight">grab the stream, replay, find the wrong event.</span></p>
+	<aside class="notes">
+		Don't read all six verbatim — pick two and let the audience feel the pattern. Each maps to an event
+		tension we've seen: split payments, allergen flags on the kitchen ticket, a void/reopen on a paid tab,
+		a duplicate DrinkAddedToTab (idempotency), a DiscountApplied that never landed, and — a callback to where we
+		opened — a round billed to the wrong tab. Under CRUD these are six forensic nightmares. Under ES they're six
+		fixture files and six Given/When/Then tests.
+	</aside>
+</section>
+
+<section>
+	<h2>Time travel</h2>
+	<pre><code class="language-php" data-trim>
+// What did the tab look like at 20:30, just before the discount applied?
+$asOf = new \DateTimeImmutable('2026-05-15 20:30:00');
+$slice = array_filter(
+    $allEvents,
+    fn($e) =&gt; $e-&gt;occurredAt() &lt;= $asOf
+);
+$tabAt2030 = Tab::fromHistory($slice);
+
+echo $tabAt2030-&gt;status();           // open
+echo $tabAt2030-&gt;runningTotalPence(); // 2420
+echo count($tabAt2030-&gt;unservedFood()); // 0
+	</code></pre>
+	<p class="small muted">Production debugging without a debugger.</p>
+	<aside class="notes">
+		Genuine time travel. Slice the events by timestamp, replay them, observe state at that moment.
+		For investigations, audits, regulator requests, customer escalations — you can answer the question
+		"what did the system know at time T" precisely.
+	</aside>
+</section>
+
+<section>
+	<h2>Production bugs become unit tests</h2>
+	<ul class="tight">
+		<li class="fragment fade-up">Customer escalation <span class="arrow-sm">→</span> grab the stream <span class="arrow-sm">→</span> <span class="good">fixture file</span></li>
+		<li class="fragment fade-up">Regulator audit <span class="arrow-sm">→</span> time-slice replay <span class="arrow-sm">→</span> <span class="good">exact answer</span></li>
+		<li class="fragment fade-up">"This worked yesterday" <span class="arrow-sm">→</span> <span class="good">diff today's stream vs yesterday's</span></li>
+		<li class="fragment fade-up">Postmortems write themselves <span class="arrow-sm">→</span> <span class="good">paste the event sequence</span></li>
+	</ul>
+	<p class="fragment" style="margin-top: 0.6em;">Standup shifts from <span class="danger">"I think it's because X"</span> to <span class="highlight">"here's the wrong event."</span></p>
+	<aside class="notes">
+		The cultural shift is real. Bug discussions in standup move from "I think it's because X" to "here are the
+		eight events, and here's the one that's wrong." Concrete. Reviewable. Not a guess.
+	</aside>
+</section>
+
+<section>
+	<h2>Postmortems as event narratives</h2>
+	<blockquote class="small">
+		"At 20:02:14, the till at the front window sent OrderFood with price=1650.<br>
+		The Tab aggregate accepted and recorded FoodOrderedToTab(price=1650).<br>
+		At 20:33:08, the happy-hour scheduler emitted DiscountApplied(amount=104),<br>
+		based on its (incorrect) calculation that only drinks qualified.<br>
+		The customer was charged £6.70 too much."
+	</blockquote>
+	<p class="small muted">No "we think." No "probably." Just the events.</p>
+	<aside class="notes">
+		Show this is what the postmortem doc looks like. Specific, time-stamped, causal. Try doing that from a
+		CRUD database. You can't — the information has been overwritten. This is the deepest payoff of ES.
+	</aside>
+</section>
+
+<!-- ==================== PART 5: THE SAFETY NET ==================== -->
+
+<section>
+	<h2>Part 5</h2>
+	<h3 class="good" style="color: rgb(216, 78, 28);">The safety net</h3>	<aside class="notes">
+		Pivot to the second big payoff: how do you actually fix the bug in production once you've found it?
+		This is where the discipline of "events are immutable" forces good habits.
+	</aside>
+</section>
+
+<section>
+	<h2>The wrong way</h2>
+	<pre><code class="language-pgsql" data-trim>
+UPDATE tabs SET total = 5300 WHERE id = 7;
+-- the symptom is fixed
+-- the code that produced it is unchanged
+-- the audit trail says nothing
+-- the customer escalation is closed
+-- the bug ships again next Friday
+	</code></pre>
+	<span class="stamp">DON'T</span>
+	<aside class="notes">
+		The familiar villain. The hotfix UPDATE is fast, satisfying, and corrosive. It hides the bug, removes the
+		evidence, and makes the next investigation harder. We're going to do better.
+	</aside>
+</section>
+
+<section>
+	<h2>The right way: compensating event</h2>
+	<pre><code class="language-php" data-trim>
+$tab = $tabs-&gt;load('tab-2026-05-15-7');
+
+$tab-&gt;adjustTotal(
+    reason: 'happy-hour discount under-applied (INC-4471)',
+    deltaPence: -670,
+    by: 'christopher@phparch.com',
+);
+
+$tabs-&gt;save($tab);
+
+// Emits: TabAdjusted {
+//   tab: 'tab-2026-05-15-7',
+//   delta: -670,
+//   reason: 'happy-hour discount under-applied (INC-4471)',
+//   by: 'christopher@phparch.com',
+//   occurred_at: '2026-05-16T09:12:01Z'
+// }
+	</code></pre>
+	<p class="small">The fix is itself an event. It's auditable. It's reversible. It's history.</p>
+	<aside class="notes">
+		Compensating events. You don't change the past — Friday night really did charge £6.70 too much. You
+		<em>add</em> a corrective event on Saturday morning. The customer's refund is now a first-class business
+		event. Finance can see it. The auditor can see it. The customer can see it on their statement.
+	</aside>
+</section>
+
+<section>
+	<h2>Why we don't mutate history</h2>
+	<ul class="tight">
+		<li class="fragment fade-up"><span class="highlight">Replay determinism</span> — the same stream must always produce the same state</li>
+		<li class="fragment fade-up">Other projections may have <span class="highlight">already consumed</span> the wrong event</li>
+		<li class="fragment fade-up"><span class="highlight">Audit integrity</span> — you can't quietly rewrite financial history</li>
+		<li class="fragment fade-up"><span class="highlight">Trust</span> — if events can change, they aren't facts anymore</li>
+	</ul>
+	<p class="fragment" style="margin-top: 0.6em;">Edit an event and you've <span class="danger">reinvented CRUD.</span></p>
+	<aside class="notes">
+		This is the rule that takes the longest to internalise. Engineers want to "just fix the bad event."
+		Don't. The whole value of the model is that events are facts. Once you allow editing, you've reinvented CRUD.
+	</aside>
+</section>
+
+<section>
+	<h2>The fix loop</h2>
+	<ol class="tight" style="list-style: none; margin-left: 0; text-align: left; max-width: 22em; margin-inline: auto; font-size: 0.9em;">
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">1</span>Identify the bad event(s) in the stream</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">2</span>Write the corrected logic in the aggregate / projection</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">3</span>Add a compensating event (or rebuild a projection)</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">4</span>Replay the affected streams to verify</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">5</span>Deploy</li>
+	</ol>
+	<div class="two-col fragment" style="margin-top: 0.7em; max-width: 26em; margin-inline: auto;">
+		<div>
+			<h3 class="highlight" style="margin-top: 0;">The future</h3>
+			<p class="small">prevented by the new logic</p>
+		</div>
+		<div>
+			<h3 class="good" style="margin-top: 0;">The past</h3>
+			<p class="small">corrected by compensating events</p>
+		</div>
+	</div>
+	<p class="small muted fragment">Neither touches old data. Both ship in a normal PR.</p>
+	<aside class="notes">
+		The biggest idea in this section — why we do all of this. Two complementary moves: prevent future bugs by
+		fixing the code, and correct historical data with new events. Land the two-column payoff hard: the future is
+		protected AND the past is put right, without ever editing old data. Both reviewable in a normal PR.
+	</aside>
+</section>
+
+<section>
+	<h2>Rebuilding a projection</h2>
+	<pre><code class="language-php" data-trim>
+// Logic in CashierProjection was wrong all along
+// Don't UPDATE the tab_summary table — rebuild it
+
+$readDb-&gt;exec('TRUNCATE TABLE tab_summary');
+$checkpoints-&gt;reset('cashier');
+
+// then on the next catch-up tick:
+$catchup-&gt;tick();
+// =&gt; replays every event ever recorded
+// =&gt; tab_summary is now correct
+	</code></pre>
+	<p class="small muted">For projections, you can rewrite history because it isn't history. It's a cache.</p>
+	<aside class="notes">
+		Critical distinction. Events = immutable history. Projections = derived caches. You can rebuild a projection
+		any time, any way. That's what makes deploying a new pricing engine safe: shadow project it from real events
+		and inspect the result before flipping the read.
+	</aside>
+</section>
+
+<section>
+	<h2>Shadow projections</h2>
+	<div class="pmflow">
+		<span class="event total">Events</span>
+		<span class="arrow">→</span>
+		<div class="cmds">
+			<div class="event">CashierProjection <span class="good">· live, read by app</span></div>
+			<div class="event fragment fade-up">CashierProjectionV2 <span class="muted">· shadow, building in parallel</span></div>
+		</div>
+	</div>
+	<p class="small fragment" style="margin-top: 0.5em;">When V2 looks right:</p>
+	<ol class="tight small" style="list-style: none; margin-left: 0; text-align: left; max-width: 22em; margin-inline: auto;">
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">1</span>Stop writes to V1</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">2</span>Wait for V2 to catch up</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">3</span>Atomic rename / read-config flip</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">4</span>Delete V1</li>
+	</ol>
+	<p class="small fragment"><span class="danger">Scary in CRUD.</span> <span class="highlight">Trivial in ES</span> — if V2 is wrong, V1 never stopped working.</p>
+	<aside class="notes">
+		Zero-downtime projection rewrite. Build the new one alongside, let it catch up to the live stream,
+		flip the read pointer. If V2 is wrong, no harm done — V1 still works. Genuinely scary in CRUD, trivial in ES.
+	</aside>
+</section>
+
+<section>
+	<h2>But the event shape changed!</h2>
+	<p>The case where you really do need to evolve an event:</p>
+	<pre><code class="language-php" data-trim>
+// v1 of the event (2024)
+DrinkAddedToTab { tab, item, price }
+
+// v2 of the event (2026): we now need VAT rate per item
+DrinkAddedToTab { tab, item, price, vat_rate }
+	</code></pre>
+	<p class="small">Two options. Add a new event type, or <em>upcast</em> on read.</p>
+	<aside class="notes">
+		Schema evolution is the most legitimate "but how do I…" question. Two answers. Add a new event type
+		(DrinkAddedToTabV2) — simple, additive, no backfill. Or upcast on read — transform old events into
+		the new shape as they're loaded. We'll show upcasting.
+	</aside>
+</section>
+
+<section>
+	<h2>Upcasting</h2>
+	<pre><code class="language-php" data-trim>
+final class DrinkAddedUpcaster
+{
+    public function upcast(array $payload, int $payloadVersion): array
+    {
+        if ($payloadVersion &lt; 2) {
+            // v1 didn't have vat_rate — infer it from the item
+            $payload['vat_rate'] = $this-&gt;inferVatFor($payload['item']);
+            $payloadVersion = 2;
+        }
+        return $payload;
+    }
+}
+	</code></pre>
+	<p class="small">Runs in the serializer on every load. Old events look new to new code.</p>
+	<aside class="notes">
+		Upcasters live in the deserialization path. They never touch stored data. The historical event in the
+		event store is still v1 — we just transform it into v2 every time we read it. Storage stays immutable;
+		code sees the latest shape.
+	</aside>
+</section>
+
+<section>
+	<h2>When to upcast vs add a new event</h2>
+	<table>
+		<tr><th class="highlight">Add a new event type</th><th class="good">Upcast</th></tr>
+		<tr class="fragment"><td>Meaning changed</td><td>Shape changed, meaning didn't</td></tr>
+		<tr class="fragment"><td>New field is fundamentally new info</td><td>New field is derivable from old</td></tr>
+		<tr class="fragment"><td>You want old events to still be readable as-is</td><td>You want one code path</td></tr>
+	</table>
+	<p class="small fragment" style="margin-top: 0.7em;">Meaning changed? <span class="highlight">New event.</span> &nbsp;Just the shape? <span class="good">Upcast.</span></p>
+	<aside class="notes">
+		Rule of thumb. If the business meaning of the event is genuinely different, give it a new name —
+		DrinkAddedToTabWithVat. If it's the same event with a richer payload, upcast. Don't upcast to paper over
+		semantic changes; that's how you get subtle bugs.
+	</aside>
+</section>
+
+<section>
+	<h2>Deploy with confidence</h2>
+	<ol class="tight" style="list-style: none; margin-left: 0; text-align: left; max-width: 24em; margin-inline: auto;">
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">1</span>Write the fix locally</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">2</span>Replay last week's production stream through the new code</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">3</span>Diff projection outputs against current production</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">4</span>If the diff is <span class="highlight">exactly</span> the bugs you intended to fix — ship</li>
+	</ol>
+	<p class="small fragment">You're not guessing. You're testing against <span class="highlight">real history.</span></p>
+	<aside class="notes">
+		This is the deployment story I love most. You can replay a week of production traffic against your fix,
+		offline, before it ever sees a live request. The "I'm pretty sure this is right" deploy gets replaced by
+		"I've already seen it produce the right answer for 47,892 real tabs."
+	</aside>
+</section>
+
+<section>
+	<h2>Anti-patterns</h2>
+	<table style="font-size: 0.6em;">
+		<tr><th class="danger">Anti-pattern</th><th class="good">Why — or do this instead</th></tr>
+		<tr class="fragment"><td class="danger">Deleting events</td><td>If you must, you've already lost the property</td></tr>
+		<tr class="fragment"><td class="danger">Editing payloads in the database</td><td>Same</td></tr>
+		<tr class="fragment"><td class="danger">CRUD events — <code>FieldXChanged</code></td><td>Not a business event</td></tr>
+		<tr class="fragment"><td class="danger">Generic events — <code>TabUpdated</code></td><td>Tells you nothing</td></tr>
+		<tr class="fragment"><td class="danger">Side effects in <code>apply()</code></td><td>Replay must be pure</td></tr>
+		<tr class="fragment"><td class="danger">Cross-aggregate transactions</td><td>Use process managers instead</td></tr>
+	</table>
+	<aside class="notes">
+		Six landmines. Walk through each briefly. The "no side effects in apply()" one trips up almost everyone —
+		it's tempting to send the receipt email inside apply(), and that breaks replay forever. Side effects belong
+		in process managers, listening to events <em>after</em> they're persisted.
+	</aside>
+</section>
+
+<section>
+	<h2>GDPR &amp; the immutable past</h2>
+	<blockquote style="font-size: 1.1em;"><span class="danger">"But I have to delete a user's data."</span></blockquote>
+	<p class="fragment"><span class="highlight">Crypto-shredding</span> — the standard answer:</p>
+	<div class="pmflow fragment">
+		<span class="event">Encrypt PII<br>per-subject key</span>
+		<span class="arrow">→</span>
+		<span class="pm">delete the key</span>
+		<span class="arrow">→</span>
+		<span class="event bad">payload<br>unreadable</span>
+	</div>
+	<ul class="tight small" style="list-style: none; margin-left: 0; max-width: 26em; margin-inline: auto;">
+		<li class="fragment">Events remain — the stream is intact for audit &amp; replay of non-PII</li>
+		<li class="fragment">Documented pattern, tooling exists — <span class="good">not as scary as it sounds</span></li>
+	</ul>
+	<aside class="notes">
+		The question that always comes up. Yes, GDPR is real, and yes, event sourcing has well-known patterns
+		for it. Crypto-shredding is the most common: encrypt the PII fields with a per-subject key, store the
+		key separately, delete the key on a right-to-be-forgotten request. Events remain; data becomes unreadable.
+	</aside>
+</section>
+
+<!-- ==================== PART 6: STRANGLING THE LEGACY ==================== -->
+
+<section>
+	<h2>Part 6</h2>
+	<h3 class="good" style="color: rgb(216, 78, 28);">Strangling the legacy</h3>	<aside class="notes">
+		The "okay how do I actually start" section. Nobody is going to rewrite a 200kloc PHP app on Monday.
+		The strangler fig pattern lets you adopt event sourcing one bounded context at a time, with the legacy
+		still running.
+	</aside>
+</section>
+
+<section>
+	<h2>You don't rewrite. You strangle.</h2>
+	<blockquote class="small">
+		"Gradually create a new system around the edges of the old,<br>
+		letting it grow slowly over several years until the old system is strangled."
+	</blockquote>
+	<p class="xsmall muted">— Martin Fowler, Strangler Fig</p>
+	<aside class="notes">
+		Cite Fowler. The pattern is older than ES. ES happens to be a particularly good <em>vehicle</em> for it,
+		because the event log gives you a clean seam between old and new.
+	</aside>
+</section>
+
+<section>
+	<h2>Step 1: find a context with pain</h2>
+	<div class="steprail">
+		<span class="s active">1 Pain</span>
+		<span class="s">2 Events</span>
+		<span class="s">3 Write twice</span>
+		<span class="s">4 Backfill</span>
+		<span class="s">5 Read flip</span>
+		<span class="s">6 Write flip</span>
+	</div>
+	<ul class="tight">
+		<li class="fragment">Where do bugs cluster?</li>
+		<li class="fragment">Where are the manual UPDATEs?</li>
+		<li class="fragment">Where do auditors / finance complain?</li>
+		<li class="fragment">Where is the code <span class="danger">most</span> afraid?</li>
+	</ul>
+	<p class="small muted">For the Crooked Anchor: <span class="highlight">tabs and payments</span>.</p>
+	<aside class="notes">
+		Don't start with the easy module. Start with the one that hurts. ES pays back proportionally to how much
+		"where did the money go" investigation you're currently doing. The boring CRUD admin screens? Leave them.
+	</aside>
+</section>
+
+<section>
+	<h2>Step 2: identify the events</h2>
+	<div class="steprail">
+		<span class="s done">1 Pain</span>
+		<span class="s active">2 Events</span>
+		<span class="s">3 Write twice</span>
+		<span class="s">4 Backfill</span>
+		<span class="s">5 Read flip</span>
+		<span class="s">6 Write flip</span>
+	</div>
+	<p>Use <span class="highlight">Event Storming</span>:</p>
+	<ul class="tight small">
+		<li class="fragment">Get the team in a room with orange sticky notes</li>
+		<li class="fragment">Write past-tense business facts</li>
+		<li class="fragment">Arrange them on a timeline</li>
+		<li class="fragment">Don't talk about code yet</li>
+	</ul>
+	<p class="xsmall muted">— Alberto Brandolini, EventStorming workshop format</p>
+	<aside class="notes">
+		Event Storming is the discovery technique that pairs with ES. It's deliberately low-tech — sticky notes,
+		a long wall, no laptops. The output is a shared vocabulary. If you can't agree what your business events
+		<em>are</em>, you can't event-source it. This step is often where teams find they've been arguing about
+		two different domain models all along.
+	</aside>
+</section>
+
+<section>
+	<h2>Step 3: write twice</h2>
+	<div class="steprail">
+		<span class="s done">1 Pain</span>
+		<span class="s done">2 Events</span>
+		<span class="s active">3 Write twice</span>
+		<span class="s">4 Backfill</span>
+		<span class="s">5 Read flip</span>
+		<span class="s">6 Write flip</span>
+	</div>
+	<pre><code class="language-php" data-trim>
+public function payTab(int $tabId, string $method, int $amount): void
+{
+    // Legacy path — still authoritative
+    $this-&gt;legacyTabService-&gt;markPaid($tabId, $method, $amount);
+
+    // Shadow event log — building the future
+    try {
+        $tab = $this-&gt;tabRepository-&gt;loadOrInitialize($tabId);
+        $tab-&gt;pay($method, $amount);
+        $this-&gt;tabRepository-&gt;save($tab);
+    } catch (\Throwable $e) {
+        // log but don't fail the request — we're still in shadow mode
+        $this-&gt;logger-&gt;warning('Shadow ES write failed', ['e' =&gt; $e]);
+    }
+}
+	</code></pre>
+	<aside class="notes">
+		The dual-write phase. Legacy is still the source of truth — if the shadow write fails, the customer
+		doesn't notice. You're building up an event log alongside the existing data. Compare them daily. When
+		they agree for long enough that you trust the shadow, flip the source of truth.
+	</aside>
+</section>
+
+<section>
+	<h2>Step 4: backfill from history</h2>
+	<div class="steprail">
+		<span class="s done">1 Pain</span>
+		<span class="s done">2 Events</span>
+		<span class="s done">3 Write twice</span>
+		<span class="s active">4 Backfill</span>
+		<span class="s">5 Read flip</span>
+		<span class="s">6 Write flip</span>
+	</div>
+	<pre><code class="language-php" data-trim>
+// Generate events from existing CRUD rows as best you can
+foreach ($legacyDb-&gt;query('SELECT * FROM tabs ORDER BY opened_at') as $row) {
+    $tab = Tab::open($row['id'], $row['table_label'], $row['server']);
+    foreach ($legacyDb-&gt;query("SELECT * FROM tab_items WHERE tab_id = ?", [$row['id']]) as $item) {
+        // best-effort reconstruction — missing fields get sentinel values
+        $tab-&gt;addDrink($item['name'], $item['price_pence'], 'backfill');
+    }
+    if ($row['status'] === 'paid') {
+        $tab-&gt;pay($row['payment_method'] ?? 'unknown', $row['total_pence']);
+    }
+    $tabRepository-&gt;save($tab);
+}
+	</code></pre>
+	<p class="small muted">Mark these events with <code>source: 'backfill'</code>. Be honest about uncertainty.</p>
+	<aside class="notes">
+		Backfilling is imperfect — by definition, you don't have the data the CRUD model discarded. That's fine.
+		Mark backfilled events as such. New events from today onward are precise; historical ones are best-effort.
+		It's still better than not having a stream at all.
+	</aside>
+</section>
+
+<section>
+	<h2>Step 5: flip the reads</h2>
+	<div class="steprail">
+		<span class="s done">1 Pain</span>
+		<span class="s done">2 Events</span>
+		<span class="s done">3 Write twice</span>
+		<span class="s done">4 Backfill</span>
+		<span class="s active">5 Read flip</span>
+		<span class="s">6 Write flip</span>
+	</div>
+	<pre><code class="language-php" data-trim>
+public function getTabSummary(int $tabId): array
+{
+    if ($this-&gt;featureFlags-&gt;enabled('es_cashier_read', $tabId)) {
+        return $this-&gt;cashierProjection-&gt;findByTabId($tabId);
+    }
+    return $this-&gt;legacyTabService-&gt;getSummary($tabId);
+}
+	</code></pre>
+	<p class="small">Roll out by percentage. Compare. Fix discrepancies. Increase the percentage.</p>
+	<aside class="notes">
+		Feature-flag the read switch. Start with 1% of tabs reading from the projection, compare against legacy,
+		grow the percentage as confidence builds. The dual-write was building the data; the read flip is when
+		users start <em>seeing</em> ES-derived numbers.
+	</aside>
+</section>
+
+<section>
+	<h2>Step 6: flip the writes</h2>
+	<div class="steprail">
+		<span class="s done">1 Pain</span>
+		<span class="s done">2 Events</span>
+		<span class="s done">3 Write twice</span>
+		<span class="s done">4 Backfill</span>
+		<span class="s done">5 Read flip</span>
+		<span class="s active">6 Write flip</span>
+	</div>
+	<ul class="tight">
+		<li class="fragment">The shadow event log has been authoritative-shaped for weeks</li>
+		<li class="fragment">Legacy writes still happen, but only as a fallback / verification</li>
+		<li class="fragment">Remove the legacy write call. <span class="highlight">The event log is the source of truth.</span></li>
+		<li class="fragment">Eventually: <span class="good">drop the legacy table.</span></li>
+	</ul>
+	<aside class="notes">
+		The final step. By the time you remove the legacy write, you've been operating with two copies for weeks
+		or months and they've agreed. The legacy table becomes vestigial; eventually you drop it. The bounded
+		context is now fully event-sourced. Onto the next one.
+	</aside>
+</section>
+
+<section>
+	<h2>Snapshots, for when streams grow</h2>
+	<pre><code class="language-php" data-trim>
+// A long-lived tab with thousands of events?
+// Snapshot the state periodically, replay only the tail.
+
+$snapshot = $snapshots-&gt;latestFor($streamId);
+if ($snapshot) {
+    $tab = Tab::fromSnapshot($snapshot);
+    $tail = $store-&gt;loadStreamFrom($streamId, $snapshot-&gt;version());
+    $tab-&gt;replay($tail);
+} else {
+    $tab = Tab::fromHistory($store-&gt;loadStream($streamId));
+}
+	</code></pre>
+	<p class="small muted">Premature snapshotting is the root of much complexity. Wait until you need it.</p>
+	<aside class="notes">
+		The "but won't replay be slow" question. For most aggregates, no — a tab has tens of events, not millions.
+		For genuinely long-lived aggregates (a year-long subscription, a multi-decade account), snapshot when
+		measurement says it matters. Not before.
+	</aside>
+</section>
+
+<section>
+	<h2>When NOT to event source</h2>
+	<ul class="tight">
+		<li class="fragment">Read-mostly <span class="highlight">catalogues</span> (products, content)</li>
+		<li class="fragment">Pure <span class="highlight">lookup tables</span> (postcodes, currencies)</li>
+		<li class="fragment">Reporting <span class="highlight">warehouses</span> (already denormalised)</li>
+		<li class="fragment">Anywhere the <span class="highlight">"why"</span> of changes doesn't matter</li>
+		<li class="fragment">Anywhere you <span class="highlight">don't control the model</span> (3rd-party SaaS)</li>
+	</ul>
+	<p class="fragment" style="margin-top: 0.7em;">If <span class="danger">nobody</span> would ever ask <span class="highlight">"how did we get here?"</span> — CRUD is fine.</p>
+	<aside class="notes">
+		Honest scope-setting. Most apps have a mix. The tabs/payments/orders bounded contexts benefit; the
+		product catalogue doesn't. Don't be religious. Use ES where the "why" matters.
+	</aside>
+</section>
+
+<section>
+	<h2>Team adoption tips</h2>
+	<ul class="tight">
+		<li class="fragment"><span class="highlight">Vocabulary first</span> — Event Storm before you code</li>
+		<li class="fragment">One context at a time — <span class="danger">resist big-bang</span></li>
+		<li class="fragment">Pair on the first aggregate</li>
+		<li class="fragment">Code review ritual: <em>"past tense? a real business fact?"</em></li>
+		<li class="fragment">Postmortem template: <span class="highlight">list the events</span></li>
+		<li class="fragment"><span class="good">Celebrate</span> the first bug that's a one-line projection fix</li>
+	</ul>
+	<p class="small muted fragment">Culture is harder than code. Bad event names doom the whole investment.</p>
+	<aside class="notes">
+		Culture is harder than code. The single most important practice is vocabulary discipline — make the team
+		spend time on event names before writing classes. Bad event names (TabUpdated, FieldChanged) doom the
+		whole investment.
+	</aside>
+</section>
+
+<!-- ==================== PART 7: CLOSE ==================== -->
+
+<section>
+	<h2>Part 7</h2>
+	<h3 class="good" style="color: rgb(216, 78, 28);">Wrapping up</h3>	<aside class="notes">
+		Bring it home. Quick recap, resources, contact, and into Q&A. Check the clock — if you have time,
+		offer to walk through any code on a prior slide.
+	</aside>
+</section>
+
+<section>
+	<h2>What you can do tomorrow</h2>
+	<ol class="tight" style="list-style: none; margin-left: 0; text-align: left; max-width: 24em; margin-inline: auto;">
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">1</span>Pick <span class="highlight">one painful module</span> in your codebase</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">2</span>Event Storm it on a wall with sticky notes</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">3</span>Write the events as PHP classes <span class="muted">(start with 5)</span></li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">4</span>Build the aggregate, the store, two projections</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">5</span>Run it in <span class="good">shadow mode</span> alongside the legacy</li>
+		<li class="fragment"><span class="highlight" style="font-weight: bold; margin-right: 0.6em;">6</span>Bring the first real bug back as a <span class="good">unit test</span></li>
+	</ol>
+	<aside class="notes">
+		End with action. Not "go read three books." Six concrete steps. You can do step 2 next week if you can
+		get a wall and an hour with the team.
+	</aside>
+</section>
+
+<section>
+	<h2>Recap</h2>
+	<ul class="tight">
+		<li class="fragment">CRUD throws away <span class="danger">the only data that can explain bugs</span></li>
+		<li class="fragment">Event sourcing stores <span class="highlight">facts, not state</span></li>
+		<li class="fragment"><span class="highlight">State = fold(events)</span> — that's the whole engine</li>
+		<li class="fragment">Bugs become <span class="good">readable sequences</span>; tests become <span class="good">real fixtures</span></li>
+		<li class="fragment">Fixes are <span class="highlight">compensating events</span>, not UPDATEs</li>
+		<li class="fragment">Adopt <span class="highlight">incrementally</span> — one context, dual-write, flip</li>
+	</ul>
+	<aside class="notes">
+		Six bullets. The one-slide version of the talk. If they leave remembering only this, they have enough
+		to evaluate ES seriously for their own work.
+	</aside>
+</section>
+
+<section>
+	<h2>Resources</h2>
+	<div class="two-col">
+		<div>
+			<h3 class="small">Books</h3>
+			<ul class="tight xsmall">
+				<li><em>Domain-Driven Design</em> — Eric Evans</li>
+				<li><em>Implementing DDD</em> — Vaughn Vernon</li>
+				<li><em>Event Sourcing</em> — Alexey Zimarev</li>
+				<li><em>Versioning in an Event Sourced System</em> — Greg Young (free PDF)</li>
+			</ul>
+		</div>
+		<div>
+			<h3 class="small">PHP libraries</h3>
+			<ul class="tight xsmall">
+				<li>EventSauce — eventsauce.io</li>
+				<li>Prooph — prooph.github.io</li>
+				<li>Broadway — github.com/broadway/broadway</li>
+				<li>Spatie laravel-event-sourcing</li>
+				<li>Patchlevel — patchlevel.github.io</li>
+			</ul>
+		</div>
+	</div>
+	<p class="xsmall muted">Workshops: virtualDDD.com · EventStorming.com · ddd-crew on GitHub</p>
+	<aside class="notes">
+		Spread across reading and tooling. Don't push one library — let people pick what fits their stack.
+		Greg Young's versioning PDF is free and is the canonical reference for schema evolution.
+	</aside>
+</section>
+
+<section>
+	<h2>Thank you</h2>
+	<p class="highlight">Christopher Miller</p>
+	<p class="small">christopher@phparch.com</p>
+	<p class="small muted">Slides &amp; demo code: github.com/phparch/event-source-your-way-out-of-trouble</p>
+	<br>
+	<h3>Questions?</h3>
+	<aside class="notes">
+		Open Q&A. Common questions to be ready for:
+		- "How do you handle GDPR?" — covered in Part 5, crypto-shredding
+		- "What about performance?" — snapshots, projections, talk about real numbers
+		- "How do you migrate?" — Part 6, strangler
+		- "Do I really need a library?" — no, but consider EventSauce for new projects
+		- "Eventual consistency UX?" — optimistic UI, return projected state from the write
+		- "What about Kafka / EventStoreDB?" — fine, but MySQL is fine too at most scales
+	</aside>
+</section>
+
+			</div>
+		</div>
+
+		<script src="dist/reveal.js"></script>
+		<script src="dist/plugin/notes.js"></script>
+		<script src="dist/plugin/markdown.js"></script>
+		<script src="dist/plugin/highlight.js"></script>
+		<script>
+			Reveal.initialize({
+				hash: true,
+				slideNumber: 'c/t',
+				transition: 'slide',
+				controlsTutorial: false,
+
+				plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+			});
+
+			// Show the PHP Architect brand mark from slide 4 (indexh 3) onwards
+			const brandMark = document.getElementById('brand-mark');
+			function updateBrandMark() {
+				brandMark.classList.toggle('visible', Reveal.getIndices().h >= 3);
+			}
+			Reveal.on('ready', updateBrandMark);
+			Reveal.on('slidechanged', updateBrandMark);
+
+			// When a focus-trigger fragment appears, dim the surrounding noise in its pile
+			Reveal.on('fragmentshown', (e) => {
+				if (e.fragment.classList.contains('focus-trigger')) e.fragment.closest('.pile, .stream').classList.add('focus');
+			});
+			Reveal.on('fragmenthidden', (e) => {
+				if (e.fragment.classList.contains('focus-trigger')) e.fragment.closest('.pile, .stream').classList.remove('focus');
+			});
+		</script>
+	</body>
+</html>
